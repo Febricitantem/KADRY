@@ -4,7 +4,67 @@
   'use strict';
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function hsvToRgb(h, s, v) {
+    h = (h % 360 + 360) % 360;
+    s = clamp(s, 0, 1);
+    v = clamp(v, 0, 1);
+    var c = v * s;
+    var x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    var m = v - c;
+    var r = 0, g = 0, b = 0;
 
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+
+    return {
+      r: Math.round((r + m) * 255),
+      g: Math.round((g + m) * 255),
+      b: Math.round((b + m) * 255)
+    };
+  }
+
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h = 0, s = 0, v = max;
+    var d = max - min;
+    s = max === 0 ? 0 : d / max;
+
+    if (d !== 0) {
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return { h: h, s: s, v: v };
+  }
+
+  function hexToRgb(hex) {
+    if (!hex) return { r: 0, g: 0, b: 0 };
+    if (hex[0] === '#') hex = hex.slice(1);
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    var num = parseInt(hex, 16);
+    if (isNaN(num)) return { r: 0, g: 0, b: 0 };
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  function rgbToHex(r, g, b) {
+    function hx(n) {
+      n = Math.max(0, Math.min(255, Math.round(n)));
+      return ('0' + n.toString(16)).slice(-2);
+    }
+    return '#' + hx(r) + hx(g) + hx(b);
+  }
   window.initDrawEditor = function initDrawEditor(opts) {
     opts = opts || {};
     var baseImageUrl = opts.baseImageUrl || null;
@@ -27,15 +87,355 @@
     var cancelSelBtn = document.getElementById('cancelSelBtn');
     var refInput = document.getElementById('refInput');
     var addRefBtn = document.getElementById('addRefBtn');
+    // палитра справа
+    var colorWheelCanvas = document.getElementById('colorWheel');
+    var hueSlider = document.getElementById('hueSlider');
+    var satSlider = document.getElementById('satSlider');
+    var valSlider = document.getElementById('valSlider');
+    var hueTrack = hueSlider ? hueSlider.parentElement : null;
+    var satTrack = satSlider ? satSlider.parentElement : null;
+    var valTrack = valSlider ? valSlider.parentElement : null;
+    var colorHistoryButtons = Array.prototype.slice.call(
+      document.querySelectorAll('.color-history-swatch')
+    );
+    var colorPreviewEl = document.getElementById('colorPreview');
 
+    var currentHSV = { h: 0, s: 1, v: 1 };
+    var lastStrokeColorHex = null;
+    var colorHistory = [];
+    var isPickingColor = false;
     if (!wrap) { console.warn('canvasWrap not found'); return; }
 
     document.documentElement.style.overflowX = 'hidden';
     document.body.style.overflowX = 'hidden';
 
     var W = 1920, H = 1080;
+    // ---- палитра справа (HSV-круг, слайдеры и история цветов)
+    function applyHSVToUI() {
+      var rgb = hsvToRgb(currentHSV.h, currentHSV.s, currentHSV.v);
+      var hex = rgbToHex(rgb.r, rgb.g, rgb.b);
 
-    // ---- таймер / блокировка
+      if (colorInp) colorInp.value = hex;
+
+      if (hueSlider) hueSlider.value = currentHSV.h;
+      if (satSlider) satSlider.value = Math.round(currentHSV.s * 100);
+      if (valSlider) valSlider.value = Math.round(currentHSV.v * 100);
+
+      // визуальные градиенты дорожек (градиент кладём на track-обёртки)
+      if (hueTrack) {
+        hueTrack.style.background =
+          'linear-gradient(to right, ' +
+          'red, yellow, lime, cyan, blue, magenta, red)';
+      }
+      if (satTrack) {
+        var rgbFull = hsvToRgb(currentHSV.h, 1, currentHSV.v);
+        satTrack.style.background =
+          'linear-gradient(to right, #808080, ' +
+          rgbToHex(rgbFull.r, rgbFull.g, rgbFull.b) + ')';
+      }
+      if (valTrack) {
+        var rgbFull2 = hsvToRgb(currentHSV.h, currentHSV.s, 1);
+        valTrack.style.background =
+          'linear-gradient(to right, #000000, ' +
+          rgbToHex(rgbFull2.r, rgbFull2.g, rgbFull2.b) + ')';
+      }
+
+      drawColorWheel();
+      if (isPickingColor) updateColorPreview();
+    }
+
+    function setColorFromHex(hex) {
+      var rgb = hexToRgb(hex || '#000000');
+      var hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+      currentHSV = { h: hsv.h, s: hsv.s, v: hsv.v };
+      applyHSVToUI();
+    }
+
+    function pushColorToHistory(hex) {
+      if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return;
+      if (colorHistory.length && colorHistory[0] === hex) return;
+      colorHistory.unshift(hex);
+      if (colorHistory.length > 10) colorHistory.length = 10;
+      updateColorHistoryUI();
+    }
+
+    function updateColorHistoryUI() {
+      if (!colorHistoryButtons || !colorHistoryButtons.length) return;
+      for (var i = 0; i < colorHistoryButtons.length; i++) {
+        var btn = colorHistoryButtons[i];
+        var c = colorHistory[i] || '#ffffff';
+        btn.style.backgroundColor = c;
+        btn.dataset.color = c;
+      }
+    }
+
+    function updateColorPreview() {
+      if (!colorPreviewEl) return;
+      if (!isPickingColor) {
+        colorPreviewEl.style.opacity = '0';
+        return;
+      }
+      var hex = colorInp ? colorInp.value || '#000000' : '#000000';
+      colorPreviewEl.style.background = hex;
+      colorPreviewEl.style.opacity = '1';
+    }
+
+    
+    function drawColorWheel() {
+      if (!colorWheelCanvas) return;
+      var ctx = colorWheelCanvas.getContext('2d');
+      if (!ctx) return;
+
+      var w = colorWheelCanvas.width;
+      var h = colorWheelCanvas.height;
+      var cx = w / 2;
+      var cy = h / 2;
+      var outerR = Math.min(cx, cy) - 4;
+      var innerR = outerR - 18;
+      var rTri = innerR - 4;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // кольцо оттенков (H)
+      ctx.lineWidth = outerR - innerR;
+      for (var angle = 0; angle < 360; angle++) {
+        var start = (angle - 1) * Math.PI / 180;
+        var end = angle * Math.PI / 180;
+        var rgb = hsvToRgb(angle, 1, 1);
+        ctx.strokeStyle = rgbToHex(rgb.r, rgb.g, rgb.b);
+        ctx.beginPath();
+        ctx.arc(cx, cy, (outerR + innerR) / 2, start, end);
+        ctx.stroke();
+      }
+
+      // координаты треугольника
+      var sin60 = Math.sin(Math.PI / 3);
+      var cos60 = Math.cos(Math.PI / 3);
+      var p0 = { x: cx,                    y: cy - rTri };              // белый
+      var p1 = { x: cx - rTri * sin60,     y: cy + rTri * cos60 };       // чёрный
+      var p2 = { x: cx + rTri * sin60,     y: cy + rTri * cos60 };       // цвет
+
+      // раскраска треугольника по HSV (приближение, берём сетку точек)
+      var imgData = ctx.getImageData(0, 0, w, h);
+      var data = imgData.data;
+      function barycentric(px, py) {
+        var den = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+        if (den === 0) return null;
+        var w0 = ((p1.y - p2.y) * (px - p2.x) + (p2.x - p1.x) * (py - p2.y)) / den;
+        var w1 = ((p2.y - p0.y) * (px - p2.x) + (p0.x - p2.x) * (py - p2.y)) / den;
+        var w2 = 1 - w0 - w1;
+        return { w0: w0, w1: w1, w2: w2 };
+      }
+
+      var minX = Math.floor(cx - rTri), maxX = Math.ceil(cx + rTri);
+      var minY = Math.floor(cy - rTri), maxY = Math.ceil(cy + rTri);
+
+      for (var y = minY; y <= maxY; y++) {
+        for (var x = minX; x <= maxX; x++) {
+          var bc = barycentric(x + 0.5, y + 0.5);
+          if (!bc) continue;
+          if (bc.w0 < 0 || bc.w1 < 0 || bc.w2 < 0) continue;
+          var S = Math.max(0, Math.min(1, bc.w2));
+          var V = Math.max(0, Math.min(1, bc.w0 + bc.w2));
+          var rgbInside = hsvToRgb(currentHSV.h, S, V);
+          var idx = (y * w + x) * 4;
+          data[idx] = rgbInside.r;
+          data[idx + 1] = rgbInside.g;
+          data[idx + 2] = rgbInside.b;
+          data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      // индикатор выбранного оттенка на кольце
+      var angRad = currentHSV.h * Math.PI / 180;
+      var ringR = (outerR + innerR) / 2;
+      var hx = cx + ringR * Math.cos(angRad);
+      var hy = cy + ringR * Math.sin(angRad);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(hx, hy, 6, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(hx, hy, 3, 0, Math.PI * 2);
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+      ctx.restore();
+
+      // индикатор внутри треугольника (S,B)
+      var Scur = Math.max(0, Math.min(1, currentHSV.s));
+      var Vcur = Math.max(0, Math.min(1, currentHSV.v));
+
+      // ограничиваем область: V >= S
+      if (Vcur < Scur) Vcur = Scur;
+
+      var w2 = Scur;
+      var w1 = 1 - Vcur;
+      var w0 = Vcur - Scur;
+      var px = w0 * p0.x + w1 * p1.x + w2 * p2.x;
+      var py = w0 * p0.y + w1 * p1.y + w2 * p2.y;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function initPaletteUI() {
+      function startPick() {
+        isPickingColor = true;
+        updateColorPreview();
+      }
+      function endPick() {
+        isPickingColor = false;
+        updateColorPreview();
+      }
+
+      function triangleGeometry() {
+        if (!colorWheelCanvas) return null;
+        var w = colorWheelCanvas.width;
+        var h = colorWheelCanvas.height;
+        var cx = w / 2;
+        var cy = h / 2;
+        var outerR = Math.min(cx, cy) - 4;
+        var innerR = outerR - 18;
+        var rTri = innerR - 4;
+        var sin60 = Math.sin(Math.PI / 3);
+        var cos60 = Math.cos(Math.PI / 3);
+        var p0 = { x: cx,                    y: cy - rTri };
+        var p1 = { x: cx - rTri * sin60,     y: cy + rTri * cos60 };
+        var p2 = { x: cx + rTri * sin60,     y: cy + rTri * cos60 };
+        return { cx: cx, cy: cy, outerR: outerR, innerR: innerR, rTri: rTri, p0: p0, p1: p1, p2: p2 };
+      }
+
+      function barycentric(px, py, g) {
+        var p0 = g.p0, p1 = g.p1, p2 = g.p2;
+        var den = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+        if (den === 0) return null;
+        var w0 = ((p1.y - p2.y) * (px - p2.x) + (p2.x - p1.x) * (py - p2.y)) / den;
+        var w1 = ((p2.y - p0.y) * (px - p2.x) + (p0.x - p2.x) * (py - p2.y)) / den;
+        var w2 = 1 - w0 - w1;
+        return { w0: w0, w1: w1, w2: w2 };
+      }
+
+      if (colorWheelCanvas) {
+        var handleWheel = function (e) {
+          var rect = colorWheelCanvas.getBoundingClientRect();
+          var x = e.clientX - rect.left;
+          var y = e.clientY - rect.top;
+          var g = triangleGeometry();
+          if (!g) return;
+          var dx = x - g.cx;
+          var dy = y - g.cy;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+
+          // кольцо
+          if (dist >= g.innerR && dist <= g.outerR) {
+            var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            currentHSV.h = angle;
+            applyHSVToUI();
+            return;
+          }
+
+          // треугольник
+          var bc = barycentric(x, y, g);
+          if (!bc) return;
+          if (bc.w0 < -0.01 || bc.w1 < -0.01 || bc.w2 < -0.01) return;
+
+          var S = Math.max(0, Math.min(1, bc.w2));
+          var V = Math.max(0, Math.min(1, bc.w0 + bc.w2));
+          currentHSV.s = S;
+          currentHSV.v = V;
+          applyHSVToUI();
+        };
+
+        colorWheelCanvas.addEventListener('pointerdown', function (e) {
+          startPick();
+          handleWheel(e);
+          function moveHandler(ev) { handleWheel(ev); }
+          function upHandler() {
+            colorWheelCanvas.removeEventListener('pointermove', moveHandler);
+            window.removeEventListener('pointerup', upHandler);
+            endPick();
+          }
+          colorWheelCanvas.addEventListener('pointermove', moveHandler);
+          window.addEventListener('pointerup', upHandler);
+        });
+      }
+
+      if (hueSlider) {
+        hueSlider.addEventListener('input', function () {
+          currentHSV.h = Number(hueSlider.value) || 0;
+          applyHSVToUI();
+        });
+        hueSlider.addEventListener('pointerdown', function () {
+          startPick();
+          function upHandler() {
+            window.removeEventListener('pointerup', upHandler);
+            endPick();
+          }
+          window.addEventListener('pointerup', upHandler);
+        });
+      }
+
+      if (satSlider) {
+        satSlider.addEventListener('input', function () {
+          currentHSV.s = (Number(satSlider.value) || 0) / 100;
+          applyHSVToUI();
+        });
+        satSlider.addEventListener('pointerdown', function () {
+          startPick();
+          function upHandler() {
+            window.removeEventListener('pointerup', upHandler);
+            endPick();
+          }
+          window.addEventListener('pointerup', upHandler);
+        });
+      }
+
+      if (valSlider) {
+        valSlider.addEventListener('input', function () {
+          currentHSV.v = (Number(valSlider.value) || 0) / 100;
+          applyHSVToUI();
+        });
+        valSlider.addEventListener('pointerdown', function () {
+          startPick();
+          function upHandler() {
+            window.removeEventListener('pointerup', upHandler);
+            endPick();
+          }
+          window.addEventListener('pointerup', upHandler);
+        });
+      }
+
+      if (colorHistoryButtons && colorHistoryButtons.length) {
+        colorHistoryButtons.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var hex = btn.dataset.color;
+            if (hex) setColorFromHex(hex);
+          });
+        });
+      }
+
+      // стартовые значения
+      if (colorInp && colorInp.value) {
+        setColorFromHex(colorInp.value);
+      } else {
+        setColorFromHex('#000000');
+      }
+      updateColorHistoryUI();
+    }
+// ---- таймер / блокировка
     function isTimeExpired() { return document.body.classList.contains('time-expired'); }
 
     var hudEnabled = true;
@@ -377,12 +777,7 @@
       // 0 = полностью прозрачная кисть, 1 = максимально плотная
       return clamp(v, 0, 1);
     }
-    function smooth() {
-      // 0 — без сглаживания, 1 на ползунке — сглаживание ×3
-      if (!smoothInp) return 0;
-      var v = Number(smoothInp.value) || 0;
-      return clamp(v * 3, 0, 3);
-    }
+    function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
 
     function updateToolCursor() {
       if (!wrap) return;
@@ -647,6 +1042,9 @@
       }
       drawing = true;
       if (!l.isRef) snapshot(l);
+      if (t === 'brush') {
+        lastStrokeColorHex = colorInp ? colorInp.value : '#000000';
+      }
       pathPoints = [];
       pathPoints.push(localXY(e));
       redrawPreview();
@@ -770,6 +1168,9 @@
       drawing = false;
       if (!l.isRef) redraw(l.ctx, l, pathPoints);
       redrawPreview(); pathPoints = [];
+      if (t === 'brush' && lastStrokeColorHex) {
+        pushColorToHistory(lastStrokeColorHex);
+      }
     }
 
 
@@ -943,6 +1344,7 @@
       function hx(n) { return ('0' + n.toString(16)).slice(-2); }
       var hex = '#' + hx(d[0]) + hx(d[1]) + hx(d[2]);
       if (colorInp) colorInp.value = hex;
+      setColorFromHex(hex);
     }
 
     if (sizeInp) sizeInp.addEventListener('input', function () { showSizeHUD(size()); });
@@ -1071,6 +1473,8 @@
     window.drawAPI.exportCompositeBlob = function () { return exportComposite(); };
 
     // ---- инициализация
+        initPaletteUI();
+
     (function initBase() {
       var base = makeLayer('Базовый слой', false);
       if (baseImageUrl) {

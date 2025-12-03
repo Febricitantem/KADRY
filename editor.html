@@ -86,10 +86,156 @@
 
     #layerList{max-height:260px; overflow-y:auto; padding-right:4px;}
 
-    .stage{flex:1; display:flex; flex-direction:column; overflow:hidden}
+        .stage{flex:1; display:flex; flex-direction:column; overflow:hidden}
     .topbar{display:flex; align-items:center; gap:14px; padding:8px 16px; background:#fff; border-bottom:1px solid #e5e7eb}
-    .canvas-holder{flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:12px}
-    #canvasWrap{position:relative; background:#fff; border:1px solid #ddd; width:100%; height:auto; flex:0 0 auto;}
+    .canvas-holder{
+      flex:1;
+      display:flex;
+      align-items:stretch;
+      justify-content:center;
+      overflow:hidden;
+      padding:12px;
+      gap:12px;
+    }
+    #canvasWrap{
+      position:relative;
+      background:#fff;
+      border:1px solid #ddd;
+      width:100%;
+      height:auto;
+      flex:1 1 auto;
+    }
+    .color-preview{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:70px;
+      height:70px;
+      border-radius:999px;
+      border:3px solid rgba(15,23,42,0.8);
+      box-shadow:0 4px 16px rgba(15,23,42,0.35);
+      background:#000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 0.12s ease-out;
+    }
+    .color-sidebar{
+      width:260px;
+      max-width:260px;
+      flex:0 0 auto;
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      border-radius:10px;
+      padding:10px 10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      box-shadow:0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .color-wheel-wrap{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+    }
+    #colorWheel{
+      max-width:100%;
+      height:auto;
+      display:block;
+    }
+    .color-sliders{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .color-slider-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      color:#374151;
+    }
+    .color-slider-row span{
+      width:14px;
+      text-align:right;
+    }
+    .color-slider-row input[type=range]{
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      height:100%;
+      background:transparent;
+      margin:0;
+      padding:0;
+    }
+    .color-slider-track{
+      position:relative;
+      flex:1;
+      height:16px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid #d1d5db;
+      background:#000; /* будет перекрыт градиентом из JS */
+    }
+    .color-slider-track::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      border-radius:inherit;
+      background:transparent;
+    }
+    .color-slider-track input[type=range]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      appearance:none;
+      width:10px;
+      height:16px;
+      border-radius:3px;
+      background:#f9fafb;
+      border:1px solid #111827;
+      box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+      cursor:pointer;
+    }
+    .color-slider-track input[type=range]::-moz-range-thumb{
+      width:10px;
+      height:16px;
+      border-radius:3px;
+      background:#f9fafb;
+      border:1px solid #111827;
+      cursor:pointer;
+    }
+    .color-slider-track input[type=range]::-ms-thumb{
+      width:10px;
+      height:16px;
+      border-radius:3px;
+      background:#f9fafb;
+      border:1px solid #111827;
+      cursor:pointer;
+    }
+    .color-history{
+      margin-top:6px;
+      display:flex;
+      gap:8px;
+    }
+    .color-history-col{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .color-history-swatch{
+      width:100%;
+      height:24px;
+      border-radius:4px;
+      border:1px solid #d1d5db;
+      background:#ffffff;
+      cursor:pointer;
+      padding:0;
+    }
+    .color-history-swatch:focus-visible{
+      outline:2px solid #0ea5e9;
+      outline-offset:1px;
+    }
     #canvasWrap canvas{width:100%; height:100%; display:block;}
     .bottombar{display:flex; justify-content:center; align-items:center; gap:10px; padding:10px; background:#fff; border-top:1px solid #e5e7eb}
 
@@ -209,8 +355,8 @@
     </aside>
 
     <main class="stage">
-      <div class="topbar">
-        <label>Цвет <input id="brushColor" name="brushColor" type="color" value="#000000"></label>
+            <div class="topbar">
+        <input id="brushColor" name="brushColor" type="hidden" value="#000000">
         <label>Толщина <input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8"></label>
         <label>Прозрачность кисти <input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1"></label>
         <label>Сглаживание <input id="brushSmooth" name="brushSmooth" type="range" min="0" max="1" step="0.1" value="0"></label>
@@ -228,10 +374,54 @@
       </div>
 
       <div class="canvas-holder">
-        <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080, масштабируется в контейнер)"></div>
-      </div>
+        <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080, масштабируется в контейнер)">
+          <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+        </div>
 
-      <div class="bottombar">
+        <aside class="color-sidebar" aria-label="Палитра цветов">
+          <div class="color-wheel-wrap">
+            <canvas id="colorWheel" width="220" height="220"></canvas>
+          </div>
+
+          <div class="color-sliders">
+            <div class="color-slider-row">
+              <span>H</span>
+              <div class="color-slider-track" data-kind="h">
+                <input id="hueSlider" type="range" min="0" max="360" value="0">
+              </div>
+            </div>
+            <div class="color-slider-row">
+              <span>S</span>
+              <div class="color-slider-track" data-kind="s">
+                <input id="satSlider" type="range" min="0" max="100" value="100">
+              </div>
+            </div>
+            <div class="color-slider-row">
+              <span>B</span>
+              <div class="color-slider-track" data-kind="b">
+                <input id="valSlider" type="range" min="0" max="100" value="100">
+              </div>
+            </div>
+          </div>
+
+          <div class="color-history" aria-label="История цветов">
+            <div class="color-history-col">
+              <button class="color-history-swatch" data-index="0"></button>
+              <button class="color-history-swatch" data-index="1"></button>
+              <button class="color-history-swatch" data-index="2"></button>
+              <button class="color-history-swatch" data-index="3"></button>
+              <button class="color-history-swatch" data-index="4"></button>
+            </div>
+            <div class="color-history-col">
+              <button class="color-history-swatch" data-index="5"></button>
+              <button class="color-history-swatch" data-index="6"></button>
+              <button class="color-history-swatch" data-index="7"></button>
+              <button class="color-history-swatch" data-index="8"></button>
+              <button class="color-history-swatch" data-index="9"></button>
+            </div>
+          </div>
+        </aside>
+      </div><div class="bottombar">
         <button id="confirmSelBtn" class="btn add" title="Применить выделение" style="display:none; margin-right:24px;">✔</button>
         <button id="undoBtn" class="btn" title="Отмена">⟵</button>
         <button id="redoBtn" class="btn" title="Повтор">⟶</button>
