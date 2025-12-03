@@ -650,8 +650,10 @@
         if (dragging && selection) {
           var p = lastPos;
           if (dragMode === 'move' || !dragMode) {
-            selection.x = clamp(p.x - dragOffX, 0, W - selection.w);
-            selection.y = clamp(p.y - dragOffY, 0, H - selection.h);
+            // Позволяем вытягивать выделение за край холста:
+            // координаты НЕ ограничиваем, обрезка произойдёт при применении.
+            selection.x = p.x - dragOffX;
+            selection.y = p.y - dragOffY;
           } else {
             var s = selection, ox = s.x, oy = s.y, ow = s.w, oh = s.h;
             if (dragMode === 'tl') {
