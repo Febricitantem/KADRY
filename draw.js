@@ -377,7 +377,12 @@
       // 0 = полностью прозрачная кисть, 1 = максимально плотная
       return clamp(v, 0, 1);
     }
-    function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
+    function smooth() {
+      // 0 — без сглаживания, 1 на ползунке — сглаживание ×3
+      if (!smoothInp) return 0;
+      var v = Number(smoothInp.value) || 0;
+      return clamp(v * 3, 0, 3);
+    }
 
     function updateToolCursor() {
       if (!wrap) return;
