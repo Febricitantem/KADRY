@@ -243,11 +243,56 @@
     /* Админ-видимость */
     .admin-only{display:none}
     .is-admin .admin-only{display:block}
-  </style>
+  
+    body.site-closed {
+      overflow: hidden;
+    }
+    .site-closed-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(6px);
+    }
+    .site-closed-card {
+      max-width: 420px;
+      width: 100%;
+      border-radius: 16px;
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.6);
+      padding: 18px 18px 16px;
+      box-shadow: 0 20px 40px rgba(15,23,42,0.8);
+      font-size: 14px;
+    }
+    .site-closed-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .site-closed-text {
+      font-size: 14px;
+      color: #cbd5f5;
+    }
+</style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
 </head>
 <body>
+
+  <div id="site-closed-overlay" class="site-closed-overlay" style="display:none">
+    <div class="site-closed-card">
+      <div class="site-closed-title">Онлайн сейчас закрыт</div>
+      <div class="site-closed-text" id="site-closed-message">
+        Рисование временно недоступно. Попробуйте зайти позже.
+      </div>
+    </div>
+  </div>
+
   <header class="site-header">
     <div class="hslot h1">
       <div class="brand">
@@ -336,78 +381,6 @@
         }
       }
     );
-  // --- Session analytics: visit_sessions ---
-  (function () {
-    const SESSION_KEY = 'kadry_session_id';
-    const HITS_KEY = 'kadry_session_hits';
-
-    let sessionId = null;
-    try {
-      sessionId = localStorage.getItem(SESSION_KEY);
-    } catch (e) {
-      console.warn('localStorage not available', e);
-    }
-
-    if (!sessionId) {
-      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        sessionId = window.crypto.randomUUID();
-      } else {
-        sessionId = String(Math.random()).slice(2) + String(Date.now());
-      }
-      try {
-        localStorage.setItem(SESSION_KEY, sessionId);
-      } catch (e) {
-        console.warn('cannot persist session id', e);
-      }
-    }
-
-    let hits = 0;
-    try {
-      const raw = localStorage.getItem(HITS_KEY);
-      hits = raw ? parseInt(raw, 10) || 0 : 0;
-      hits += 1;
-      localStorage.setItem(HITS_KEY, String(hits));
-    } catch (e) {
-      console.warn('cannot persist hits', e);
-      hits = 1;
-    }
-
-    async function upsertSession(initial) {
-      if (!sessionId || typeof client === 'undefined' || !client || !client.from) return;
-      try {
-        if (initial) {
-          const { error } = await db
-            .from('visit_sessions')
-            .upsert({
-              session_id: sessionId,
-              hits: hits,
-              last_seen: new Date().toISOString()
-            }, {
-              onConflict: 'session_id'
-            });
-          if (error) {
-            console.warn('visit_sessions upsert error', error);
-          }
-        } else {
-          const { error } = await db
-            .from('visit_sessions')
-            .update({
-              last_seen: new Date().toISOString()
-            })
-            .eq('session_id', sessionId);
-          if (error) {
-            console.warn('visit_sessions heartbeat error', error);
-          }
-        }
-      } catch (e) {
-        console.warn('visit_sessions request failed', e);
-      }
-    }
-
-    upsertSession(true);
-    setInterval(function () { upsertSession(false); }, 60000);
-  })();
-
     g.__supabaseClient = client;
     return client;
   })();
