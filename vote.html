@@ -714,11 +714,18 @@
         }
 
         try{
+          // для админа используем отдельный anon_id на каждый голос,
+          // чтобы обойти ограничение "1 голос на anon_id в раунде"
+          let effectiveAnonId = anonId;
+          if (isHtmlAdmin && typeof isHtmlAdmin === 'function' && isHtmlAdmin()) {
+            effectiveAnonId = 'admin_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+          }
+
           const payload = {
             frame_id: frameId,
             value: value,
             round_id: roundId,
-            anon_id: anonId
+            anon_id: effectiveAnonId
           };
           const { error } = await db.from('votes').insert([payload]);
           if(error){
