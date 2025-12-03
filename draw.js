@@ -370,7 +370,13 @@
     function tool() { return toolSel ? toolSel.value : 'brush'; }
     function size() { return sizeInp ? Number(sizeInp.value) || 8 : 8; }
     function color() { return colorInp ? colorInp.value : '#000000'; }
-    function alpha() { return clamp(alphaInp ? Number(alphaInp.value) || 1 : 1, 0, 1); }
+    function alpha() {
+      if (!alphaInp) return 1;
+      var v = Number(alphaInp.value);
+      if (!isFinite(v) || isNaN(v)) v = 1;
+      // 0 = полностью прозрачная кисть, 1 = максимально плотная
+      return clamp(v, 0, 1);
+    }
     function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
 
     function updateToolCursor() {
@@ -650,10 +656,8 @@
         if (dragging && selection) {
           var p = lastPos;
           if (dragMode === 'move' || !dragMode) {
-            // Позволяем вытягивать выделение за край холста:
-            // координаты НЕ ограничиваем, обрезка произойдёт при применении.
-            selection.x = p.x - dragOffX;
-            selection.y = p.y - dragOffY;
+            selection.x = clamp(p.x - dragOffX, 0, W - selection.w);
+            selection.y = clamp(p.y - dragOffY, 0, H - selection.h);
           } else {
             var s = selection, ox = s.x, oy = s.y, ow = s.w, oh = s.h;
             if (dragMode === 'tl') {
