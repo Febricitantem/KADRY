@@ -723,13 +723,12 @@
           const { error } = await db.from('votes').insert([payload]);
           if(error){
             const msg = (error.message || '').toLowerCase();
-            if(error.code === '23505' || /duplicate/.test(msg) || /already/.test(msg)){
-              alert('Вы можете поставить только 1 оценку на кадр');
-            }else{
-              console.warn('vote insert error', error);
-              alert('Не удалось сохранить голос. Попробуйте ещё раз.');
+            if(!isHtmlAdmin()){
+              if(error.code === '23505' || /duplicate/.test(msg) || /already/.test(msg)){
+                alert('Вы можете поставить только 1 оценку на кадр');
+                return;
+              }
             }
-            return;
           }
 
 // Успех — перечитаем результаты и перерисуем
