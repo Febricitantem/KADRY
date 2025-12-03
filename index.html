@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kadry — Каталог</title>
+  <style>
+    :root {
+      --bg: #f4f4f5;
+      --text: #0f172a;
+      --muted: #64748b;
+      --card: #fff;
+      --stroke: #e5e7eb;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    }
+
+    /* Шапка как на странице голосования */
+    .site-header {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      padding: 10px 18px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--stroke);
+      min-height: 65px;
+    }
+    .hslot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: inherit;
+      font-weight: 600;
+    }
+    .hslot:hover {
+      background: #e5e7eb40;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+    }
+    .brand .above {
+      font-size: 30px;
+      font-weight: 800;
+      transform: translateY(-18%);
+    }
+    .brand .below {
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      transform: translateY(18%);
+    }
+
+    /* Дальше — стили каталога (как были) */
+    .wrap{max-width:1200px;margin:22px auto;padding:0 18px}
+    h1{font-size:36px;font-weight:800;margin:8px 0 18px}
+
+    .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer}
+    .btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* Лента серии — фиксированная: 1 строка, 3 колонки */
+    .series-row{position:relative;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:320px 1fr 240px;gap:24px;align-items:center;height:152px;overflow:hidden}
+    @media (max-width:900px){.series-row{grid-template-columns:1fr;height:auto;align-items:start}.aside{align-items:flex-start;text-align:left;width:auto}.series-actions .btn,.series-title{width:100%}}
+
+    /* col1: превью/стопка */
+    .preview{grid-column:1;height:124px;width:100%;overflow:hidden;padding-left:12px;position:relative;display:flex;align-items:center;cursor:pointer}
+    .stack{position:relative;height:124px;width:100%;overflow:hidden}
+    .tile{position:absolute;top:0;left:0;width:220px;aspect-ratio:16/9;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:transform 1s ease,left 1s ease,opacity 1s ease;will-change:left,transform}
+    .tile img{width:100%;height:100%;object-fit:contain;display:block}
+    .stack:not(.expanded) .tile{--shift:14px;left:calc(var(--i)*var(--shift));transform:translateX(calc(var(--i)*2px))}
+    .stack:not(.expanded) .tile:not(:last-child){opacity:.92}
+    .stack.expanded{position:relative;height:124px}
+    .stack.expanded .tile{transform:none;cursor:pointer}
+    .tile.ellipsis{position:relative}
+    .tile.ellipsis img{filter:opacity(.3)}
+    .tile.ellipsis::after{content:'…';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#334155}
+
+    /* col2: описание */
+    .series-desc{grid-column:2;grid-row:1;color:#475569;font-size:14px;text-align:center;display:flex;align-items:center;justify-content:center;height:124px;overflow:hidden;position:relative}
+    /* Медленный возврат: появление 1.8s + подъём 1.4s */
+    .series-desc__inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease, transform 1.4s ease}
+    /* Быстрое скрытие при развороте карточек */
+    .series-row.expanded .series-desc__inner{opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s ease, transform .6s ease}
+
+    /* col3: правый столбец — единая ось: заголовок + две равные кнопки */
+    .aside{grid-column:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;width:240px;height:124px}
+    .series-title{font-size:20px;font-weight:800;margin:0 0 8px;text-align:center}
+    .series-actions{display:flex;flex-direction:column;gap:10px;margin-top:6px;align-items:center}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="admin.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="hslot h1">
+      <div class="brand">
+        <div class="above">Каталог</div>
+        <div class="below">Kadry</div>
+      </div>
+    </div>
+    <a class="hslot h2" href="index.html">Каталог</a>
+    <a class="hslot h3" href="votes.html">Голосования</a>
+    <a class="hslot h4" href="#">Профиль</a>
+  </header>
+
+  <div class="wrap">
+    <h1>Каталог серий</h1>
+    <button id="open-create" class="btn primary">Создать серию</button>
+    <div id="series-list" style="margin-top:14px">Загрузка…</div>
+  </div>
+
+<script>
+  // --- Supabase init ---
+  const supabase = window.supabase.createClient(
+    "https://upanhirmxhfzpajvswoq.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA",
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        storageKey: "kadry-auth",
+      },
+    }
+  );
+  // --- Session analytics: visit_sessions ---
+  (function () {
+    const SESSION_KEY = 'kadry_session_id';
+    const HITS_KEY = 'kadry_session_hits';
+
+    let sessionId = null;
+    try {
+      sessionId = localStorage.getItem(SESSION_KEY);
+    } catch (e) {
+      console.warn('localStorage not available', e);
+    }
+
+    if (!sessionId) {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        sessionId = window.crypto.randomUUID();
+      } else {
+        sessionId = String(Math.random()).slice(2) + String(Date.now());
+      }
+      try {
+        localStorage.setItem(SESSION_KEY, sessionId);
+      } catch (e) {
+        console.warn('cannot persist session id', e);
+      }
+    }
+
+    let hits = 0;
+    try {
+      const raw = localStorage.getItem(HITS_KEY);
+      hits = raw ? parseInt(raw, 10) || 0 : 0;
+      hits += 1;
+      localStorage.setItem(HITS_KEY, String(hits));
+    } catch (e) {
+      console.warn('cannot persist hits', e);
+      hits = 1;
+    }
+
+    async function upsertSession(initial) {
+      if (!sessionId || typeof supabase === 'undefined' || !supabase || !supabase.from) return;
+      try {
+        if (initial) {
+          const { error } = await supabase
+            .from('visit_sessions')
+            .upsert({
+              session_id: sessionId,
+              hits: hits,
+              last_seen: new Date().toISOString()
+            }, {
+              onConflict: 'session_id'
+            });
+          if (error) {
+            console.warn('visit_sessions upsert error', error);
+          }
+        } else {
+          const { error } = await supabase
+            .from('visit_sessions')
+            .update({
+              last_seen: new Date().toISOString()
+            })
+            .eq('session_id', sessionId);
+          if (error) {
+            console.warn('visit_sessions heartbeat error', error);
+          }
+        }
+      } catch (e) {
+        console.warn('visit_sessions request failed', e);
+      }
+    }
+
+    upsertSession(true);
+    setInterval(function () { upsertSession(false); }, 60000);
+  })();
+
+
+  // --- Helpers ---
+  // Визуальные плейсхолдеры описания (НЕ пишутся в БД)
+  const descriptionPlaceholders = [
+    'Hello, world!',
+    'It works!',
+    'Не судите строго.',
+    'Привет, это моя серия!',
+    'Вы кадр №…',
+    'Если вы это читаете — значит всё работает.'
+  ];
+  const signedCache = new Map();
+  async function getDisplayUrl(storedUrl){
+    try{
+      if(!storedUrl) return storedUrl;
+      if(storedUrl.includes('token=')) return storedUrl;
+      if(signedCache.has(storedUrl)) return signedCache.get(storedUrl);
+      const anchor='/storage/v1/object/';
+      let rest=null; const i=storedUrl.indexOf(anchor);
+      if(i!==-1) rest=storedUrl.substring(i+anchor.length);
+      if(!rest && storedUrl.includes('/Frames/')) rest='Frames/'+storedUrl.split('/Frames/')[1];
+      if(!rest) return storedUrl;
+      if(rest.startsWith('public/')) rest=rest.substring(7);
+      if(rest.startsWith('sign/'))   rest=rest.substring(5);
+      const b=rest.indexOf('Frames/');
+      if(b===-1) return storedUrl;
+      const path=rest.substring(b+'Frames/'.length);
+      const { data, error } = await supabase.storage.from('Frames').createSignedUrl(path,3600);
+      if(!error && data?.signedUrl){ signedCache.set(storedUrl,data.signedUrl); return data.signedUrl; }
+    }catch(e){ console.warn('getDisplayUrl error',e); }
+    return storedUrl;
+  }
+
+  // --- Переход в редактор при создании серии ---
+  (function(){
+    const btnOpen = document.getElementById('open-create');
+    if(btnOpen){
+      btnOpen.addEventListener('click', (e)=>{
+        e.preventDefault();
+        location.href = 'editor.html?mode=new';
+      });
+    }
+  })();
+
+  // --- Main list loader ---
+  async function loadSeries(){
+    const host=document.getElementById('series-list');
+    host.textContent='Загрузка…';
+    const { data: series, error } = await supabase.from('series').select('*').order('created_at',{ascending:false});
+    if(error){ console.error(error); host.textContent='Ошибка загрузки'; return; }
+    host.textContent='';
+
+    for(const s of (series||[])){
+      // Берём кадры: сначала committed, если их нет — кадры in_vote
+      const { data: allFrames } = await supabase
+        .from('frames')
+        .select('id,image_url,order_index,committed,in_vote')
+        .eq('series_id', s.id)
+        .or('committed.eq.true,in_vote.eq.true')
+        .order('order_index',{ascending:true,nullsFirst:false})
+        .order('id',{ascending:true});
+      const committed = (allFrames||[]).filter(f=>f.committed);
+      const inVote    = (allFrames||[]).filter(f=>!f.committed && f.in_vote);
+      const previewFrames = committed.length ? committed : inVote;
+
+      // row container
+      const row=document.createElement('div'); row.className='series-row';
+
+      // col1: preview/stack
+      const preview=document.createElement('div'); preview.className='preview';
+      preview.setAttribute('role','link');
+      preview.setAttribute('aria-label', `Открыть серию ${s.title}`);
+      preview.tabIndex = 0;
+      const goSeries = ()=>{ location.href = `series.html?id=${s.id}`; };
+      const keyGo = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); goSeries(); } };
+      preview.addEventListener('click', goSeries);
+      preview.addEventListener('keydown', keyGo);
+
+      const stack=document.createElement('div'); stack.className='stack'; preview.appendChild(stack);
+      let i=0;
+      const stackFrames=[];
+      if(previewFrames.length>0) stackFrames.push(previewFrames[0]);
+      if(previewFrames.length>1) stackFrames.push(previewFrames[Math.min(1,previewFrames.length-1)]);
+      if(previewFrames.length>3){
+        stackFrames.push({ id:'ellipsis', image_url: previewFrames[2]?.image_url || '' });
+        stackFrames.push(previewFrames[previewFrames.length-2]);
+        stackFrames.push(previewFrames[previewFrames.length-1]);
+      } else if(previewFrames.length>2) {
+        stackFrames.push(previewFrames[previewFrames.length-1]);
+      }
+
+      for(const p of stackFrames){
+        const t=document.createElement('div'); t.className='tile'; t.style.setProperty('--i', i++);
+        const img=document.createElement('img'); img.loading='lazy';
+        if(p.image_url) getDisplayUrl(p.image_url).then(u=>{ img.src=u; });
+        t.appendChild(img);
+        if(p.id==='ellipsis'){ t.classList.add('ellipsis'); }
+        stack.appendChild(t);
+      }
+
+      // initial compact state (no animation)
+      (function initCompact(){
+        const tiles=Array.from(stack.querySelectorAll('.tile'));
+        const shift=14;
+        tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
+        requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
+      })();
+
+      // col2: description
+      const desc=document.createElement('div');
+      desc.className='series-desc';
+      const descText = (s.description && s.description.trim())
+        ? (s.description||'')
+        : descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
+      const safe = descText.replace(/[<>]/g, m=>({"<":"&lt;",">":"&gt;"}[m]));
+      const descHtml = `<div class="series-desc__inner">${safe}</div>`;
+      desc.innerHTML = descHtml;
+
+      // col3: aside
+      const aside=document.createElement('div'); aside.className='aside';
+      const h=document.createElement('div'); h.className='series-title'; h.textContent=s.title; aside.appendChild(h);
+      const actions=document.createElement('div'); actions.className='series-actions';
+      const btnVote=document.createElement('button'); btnVote.className='btn vote'; btnVote.textContent='Голосование'; btnVote.onclick=()=>{ location.href=`vote.html?series=${s.id}`; };
+      const btnOpen=document.createElement('button'); btnOpen.className='btn primary open'; btnOpen.textContent='Открыть серию'; btnOpen.onclick=()=>{ location.href=`series.html?id=${s.id}`; };
+      actions.appendChild(btnVote); actions.appendChild(btnOpen); aside.appendChild(actions);
+
+      // --- Hover behaviour (запуск только при наведении на превью) ---
+      let hoverTimer=null; let expanded=false;
+
+      function expand(){
+        if(expanded) return; expanded=true;
+        const tiles=Array.from(stack.querySelectorAll('.tile'));
+        const shift=14;
+        tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
+
+        const rowRect   = row.getBoundingClientRect();
+        const asideRect = aside.getBoundingClientRect();
+        const gap = 24;
+        const leftOffset = stack.offsetLeft;
+        const topOffset  = stack.offsetTop;
+        const targetWidth = Math.max(0, (asideRect.left - rowRect.left) - (preview.offsetLeft + leftOffset) - gap);
+
+        stack.dataset.prevPos = stack.style.position;
+        stack.dataset.prevW   = stack.style.width;
+        stack.dataset.prevL   = stack.style.left;
+        stack.dataset.prevT   = stack.style.top;
+        const prevOv = preview.style.overflow; preview.dataset.prevOv = prevOv; preview.style.overflow = 'visible';
+        stack.style.position = 'absolute';
+        stack.style.left = leftOffset + 'px';
+        stack.style.top  = topOffset  + 'px';
+        stack.style.width = targetWidth + 'px';
+        stack.style.height = stack.offsetHeight + 'px';
+
+        row.classList.add('expanded'); stack.classList.add('expanded');
+        void stack.offsetWidth;
+
+        tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; });
+        const n=tiles.length; if(n===0) return;
+        const tileW=tiles[0].getBoundingClientRect().width;
+        const avail=Math.max(0, targetWidth - tileW);
+        const overlap=8;
+        const baseSlots = 5;
+        const step5 = (baseSlots>1) ? Math.max(0,(avail - overlap*(baseSlots-1))/(baseSlots-1)) : 0;
+        const step = step5;
+        tiles.forEach((t,idx)=>{ t.style.left = (idx*step + idx*overlap) + 'px'; });
+        tiles.forEach(t=>{
+          if(!t.dataset.clickable){
+            t.addEventListener('click', goSeries);
+            t.addEventListener('keydown', keyGo);
+            t.dataset.clickable='1';
+          }
+          t.tabIndex = 0;
+          t.style.cursor='pointer';
+        });
+      }
+
+      function collapse(){
+        if(!expanded) return; expanded=false;
+        const tiles=Array.from(stack.querySelectorAll('.tile'));
+        row.classList.remove('expanded'); stack.classList.remove('expanded');
+        const shift=14;
+        tiles.forEach((t,idx)=>{ t.style.left=(idx*shift)+'px'; t.tabIndex=-1; });
+        const finish=()=>{
+          tiles.forEach(t=> t.removeEventListener('transitionend', finish));
+          tiles.forEach(t=>{ t.style.transition='none'; });
+          stack.style.position = stack.dataset.prevPos || '';
+          stack.style.width    = stack.dataset.prevW   || '';
+          stack.style.left     = stack.dataset.prevL   || '';
+          stack.style.top      = stack.dataset.prevT   || '';
+          preview.style.overflow = preview.dataset.prevOv || 'hidden';
+          requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
+        };
+        tiles.forEach(t=> t.addEventListener('transitionend', finish, { once:true }));
+      }
+
+      function isInsideActiveArea(evt){
+        const rowRect = row.getBoundingClientRect();
+        const asideRect = aside.getBoundingClientRect();
+        const x = evt.clientX, y = evt.clientY;
+        const left = rowRect.left + 8;
+        const right = asideRect.left - 12;
+        const top = rowRect.top + 6, bottom = rowRect.bottom - 6;
+        return x>=left && x<=right && y>=top && y<=bottom;
+      }
+      function isInsidePreview(evt){
+        const r = preview.getBoundingClientRect();
+        const x = evt.clientX, y = evt.clientY;
+        return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+      }
+
+      row.addEventListener('mouseenter',(e)=>{ if(isInsidePreview(e)) { expand(); } });
+      row.addEventListener('mousemove',(e)=>{
+        const inActive = isInsideActiveArea(e);
+        if(expanded){ row.style.cursor = inActive ? 'pointer' : 'default'; }
+        else { row.style.cursor = 'default'; }
+        if(inActive){
+          if(isInsidePreview(e)){
+            if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; }
+            if(!expanded) expand();
+          }else{ if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; } }
+        }else{ if(!hoverTimer){ hoverTimer=setTimeout(collapse, 120); } }
+      });
+      row.addEventListener('mouseleave',()=>{ if(hoverTimer){ clearTimeout(hoverTimer);} collapse(); });
+
+      row.addEventListener('click',(e)=>{
+        if(!expanded) return;
+        const rowRect = row.getBoundingClientRect();
+        const asideRect = aside.getBoundingClientRect();
+        const x=e.clientX, y=e.clientY;
+        const inActive = x>=rowRect.left+8 && x<=asideRect.left-12 && y>=rowRect.top+6 && y<=rowRect.bottom-6;
+        if(inActive) { e.preventDefault(); goSeries(); }
+      });
+
+      requestAnimationFrame(()=>{
+        const openW = btnOpen.offsetWidth;
+        const voteW = btnVote.offsetWidth;
+        const target = Math.max(openW, voteW);
+        btnOpen.style.width = target+'px';
+        btnVote.style.width = target+'px';
+        h.style.width = target+'px';
+      });
+
+      row.appendChild(preview);
+      row.appendChild(desc);
+      row.appendChild(aside);
+      host.appendChild(row);
+    }
+  }
+
+  loadSeries();
+</script>
+</body>
+</html>

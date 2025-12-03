@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Голосования | Kadry</title>
+  <style>
+    :root {
+      --bg: #f4f4f5;
+      --text: #0f172a;
+      --muted: #64748b;
+      --card: #fff;
+      --stroke: #e5e7eb;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    }
+
+    /* Шапка как на каталоге / странице голосования */
+    .site-header {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      padding: 10px 18px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--stroke);
+      min-height: 65px;
+    }
+    .hslot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: inherit;
+      font-weight: 600;
+    }
+    .hslot:hover {
+      background: #e5e7eb40;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+    }
+    .brand .above {
+      font-size: 30px;
+      font-weight: 800;
+      transform: translateY(-18%);
+    }
+    .brand .below {
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      transform: translateY(18%);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 22px auto;
+      padding: 0 18px;
+    }
+    h1 {
+      font-size: 36px;
+      font-weight: 800;
+      margin: 8px 0 18px;
+    }
+
+    /* Кнопки / чипы */
+    .btn {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
+    }
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    /* Карточка серии в списке голосований */
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .card h3 a {
+      color: #111827;
+      text-decoration: none;
+    }
+    .card h3 a:hover {
+      text-decoration: underline;
+    }
+
+    .thumbs {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .thumb {
+      position: relative;
+      display: block;
+      width: 220px;
+      aspect-ratio: 16 / 9;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: #111827;
+      color: #fff;
+      border-radius: 18px;
+      padding: 4px 10px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .badge.frozen {
+      background: #64748b;
+    }
+
+    .empty {
+      color: #6b7280;
+      margin: 16px 0;
+    }
+    .admin-only { display: none; }
+    .is-admin .admin-only { display: inline-block; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="admin.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="hslot h1">
+      <div class="brand">
+        <div class="above">Голосования</div>
+        <div class="below">Kadry</div>
+      </div>
+    </div>
+    <a class="hslot h2" href="index.html">Каталог</a>
+    <a class="hslot h3" href="votes.html">Голосования</a>
+    <a class="hslot h4" href="#">Профиль</a>
+  </header>
+
+  <div class="wrap">
+    <h1>Активные сессии</h1>
+    <div id="list"></div>
+  </div>
+
+  <script>
+    (function(){
+      const SUPABASE_URL = "https://upanhirmxhfzpajvswoq.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA";
+      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // --- Session analytics: visit_sessions ---
+  (function () {
+    const SESSION_KEY = 'kadry_session_id';
+    const HITS_KEY = 'kadry_session_hits';
+
+    let sessionId = null;
+    try {
+      sessionId = localStorage.getItem(SESSION_KEY);
+    } catch (e) {
+      console.warn('localStorage not available', e);
+    }
+
+    if (!sessionId) {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        sessionId = window.crypto.randomUUID();
+      } else {
+        sessionId = String(Math.random()).slice(2) + String(Date.now());
+      }
+      try {
+        localStorage.setItem(SESSION_KEY, sessionId);
+      } catch (e) {
+        console.warn('cannot persist session id', e);
+      }
+    }
+
+    let hits = 0;
+    try {
+      const raw = localStorage.getItem(HITS_KEY);
+      hits = raw ? parseInt(raw, 10) || 0 : 0;
+      hits += 1;
+      localStorage.setItem(HITS_KEY, String(hits));
+    } catch (e) {
+      console.warn('cannot persist hits', e);
+      hits = 1;
+    }
+
+    async function upsertSession(initial) {
+      if (!sessionId || typeof db === 'undefined' || !db || !db.from) return;
+      try {
+        if (initial) {
+          const { error } = await db
+            .from('visit_sessions')
+            .upsert({
+              session_id: sessionId,
+              hits: hits,
+              last_seen: new Date().toISOString()
+            }, {
+              onConflict: 'session_id'
+            });
+          if (error) {
+            console.warn('visit_sessions upsert error', error);
+          }
+        } else {
+          const { error } = await db
+            .from('visit_sessions')
+            .update({
+              last_seen: new Date().toISOString()
+            })
+            .eq('session_id', sessionId);
+          if (error) {
+            console.warn('visit_sessions heartbeat error', error);
+          }
+        }
+      } catch (e) {
+        console.warn('visit_sessions request failed', e);
+      }
+    }
+
+    upsertSession(true);
+    setInterval(function () { upsertSession(false); }, 60000);
+  })();
+
+
+      const host = document.getElementById('list');
+
+      // Старые ключи (исторически в votes.html)
+      const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
+      const LS_ROUND_AT  = (id)=>`series_${id}_round_start_at`;   // ISO
+      const LS_END_AT    = (id)=>`series_${id}_round_end_at`;     // ms
+      const LS_LAST_SEEN = (id)=>`series_${id}_last_seen_ms`;     // ms
+
+      // Новые ключи (синхронны с editor.html и vote.html)
+      const K_STATE = (id)=>`kadry_vote_state_${id}`;
+      const K_ROUND = (id)=>`kadry_round_at_${id}`;
+      const K_END   = (id)=>`kadry_end_at_${id}`;
+      const K_LAST  = (id)=>`kadry_last_seen_${id}`;
+      const K_FROZEN= (id)=>`kadry_frozen_${id}`;
+
+      const MAX_MS = 30*60*1000; // 30 минут базово
+      const EXT_MS = 5*60*1000;  // +5 минут за новый кадр
+
+      const signedCache = new Map();
+      async function getDisplayUrl(storedUrl){
+        try{
+          if(!storedUrl) return storedUrl;
+          if(storedUrl.includes('token=')) return storedUrl;
+          if(signedCache.has(storedUrl)) return signedCache.get(storedUrl);
+          const anchor='/storage/v1/object/';
+          let rest=null; const i=storedUrl.indexOf(anchor);
+          if(i!==-1) rest=storedUrl.substring(i+anchor.length);
+          if(!rest && storedUrl.includes('/Frames/')) rest='Frames/'+storedUrl.split('/Frames/')[1];
+          if(!rest) return storedUrl;
+          if(rest.startsWith('public/')) rest=rest.substring(7);
+          if(rest.startsWith('sign/'))   rest=rest.substring(5);
+          const b=rest.indexOf('Frames/');
+          if(b===-1) return storedUrl;
+          const path=rest.substring(b+'Frames/'.length);
+          const { data, error } = await db.storage.from('Frames').createSignedUrl(path,3600);
+          if(!error && data?.signedUrl){ signedCache.set(storedUrl,data.signedUrl); return data.signedUrl; }
+        }catch(e){}
+        return storedUrl;
+      }
+
+      function fmtLeft(ms){
+        if(ms<=0) return '00:00';
+        const s=Math.floor(ms/1000);
+        const m=Math.floor(s/60), ss=String(s%60).padStart(2,'0');
+        return `${String(m).padStart(2,'0')}:${ss}`;
+      }
+
+      async function loadSeries(){
+        host.textContent = 'Загрузка...';
+        const { data: series, error } = await db.from('series').select('id,title,description').order('id');
+        if(error){ host.textContent='Ошибка загрузки серий'; console.error(error); return; }
+        host.textContent = '';
+
+        for(const s of (series||[])){
+          // Вычислим индекс голосуемого кадра (после последнего committed)
+          const { data: maxRow } = await db
+            .from('frames').select('order_index').eq('series_id', s.id).eq('committed', true)
+            .order('order_index', { ascending:false }).limit(1);
+          const baseIndex = (maxRow && maxRow.length && maxRow[0].order_index!=null) ? maxRow[0].order_index : 1;
+          const voteIndex = baseIndex + 1;
+
+          // Активные кандидаты только текущего индекса и только in_vote
+          const { data: frames, error: ferr } = await db
+            .from('frames')
+            .select('id,image_url,created_at,in_vote,order_index')
+            .eq('series_id', s.id)
+            .eq('in_vote', true)
+            .eq('order_index', voteIndex)
+            .order('created_at', { ascending: true });
+          if(ferr){ console.error(ferr); continue; }
+          const act = (frames||[]);
+          if(!act.length) continue; // нет активного голосования/переигровки
+
+          // Состояние и тайминги (с учётом новых ключей)
+          let state = localStorage.getItem(K_STATE(s.id)) || localStorage.getItem(LS_STATE(s.id)) || 'active';
+          if(state==='winner_frozen') continue; // финал — не показываем
+
+          let startIso = localStorage.getItem(K_ROUND(s.id)) || localStorage.getItem(LS_ROUND_AT(s.id));
+          let startMs  = startIso ? Date.parse(startIso) : NaN;
+          let endMs    = Number(localStorage.getItem(K_END(s.id)) || localStorage.getItem(LS_END_AT(s.id)) || 0);
+          let lastSeen = Number(localStorage.getItem(K_LAST(s.id)) || localStorage.getItem(LS_LAST_SEEN(s.id)) || 0);
+
+          if(!isFinite(startMs)){
+            // Инициализация по первому кандидату
+            startMs = Math.min(...act.map(a=> new Date(a.created_at).getTime()));
+            if(!isFinite(startMs)) continue;
+            startIso = new Date(startMs).toISOString();
+            endMs = startMs + MAX_MS;
+            // эмуляция продлений по каждому новому кадру
+            const sorted = [...act].sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
+            lastSeen = startMs;
+            for(const f of sorted){
+              const t = new Date(f.created_at).getTime();
+              if(t>lastSeen){
+                endMs = Math.min(startMs + MAX_MS, endMs + EXT_MS);
+                lastSeen = t;
+              }
+            }
+            // сохраним во ВСЕ ключи, чтобы синхронизировать со страницами
+            localStorage.setItem(LS_STATE(s.id), state);
+            localStorage.setItem(LS_ROUND_AT(s.id), startIso);
+            localStorage.setItem(LS_END_AT(s.id), String(endMs));
+            localStorage.setItem(LS_LAST_SEEN(s.id), String(lastSeen));
+            localStorage.setItem(K_STATE(s.id), state);
+            localStorage.setItem(K_ROUND(s.id), startIso);
+            localStorage.setItem(K_END(s.id), String(endMs));
+            localStorage.setItem(K_LAST(s.id), String(lastSeen));
+          }
+
+          // Карточка серии в списке
+          const box = document.createElement('div');
+          box.className = 'series card';
+          box.innerHTML = `<h3><a href="series.html?id=${s.id}">${escapeHtml(s.title||('Серия #'+s.id))}</a></h3>`;
+          const thumbs = document.createElement('div');
+          thumbs.className = 'thumbs';
+
+          for(let i=0;i<act.length;i++){
+            const f = act[i];
+            const a = document.createElement('a');
+            a.className = 'thumb';
+            a.href = `vote.html?series=${s.id}`;
+            const img = document.createElement('img');
+            img.alt = 'Кадр'; img.loading = 'lazy';
+            getDisplayUrl(f.image_url).then(u=> img.src=u);
+
+            if(i===0){
+              const badge = document.createElement('div');
+              badge.className = 'badge';
+              const draw = ()=>{
+                const curState = localStorage.getItem(K_STATE(s.id)) || localStorage.getItem(LS_STATE(s.id)) || 'active';
+                if(curState==='replay_frozen'){
+                  badge.textContent = 'Заморожено';
+                  badge.classList.add('frozen');
+                  return;
+                }
+                badge.classList.remove('frozen');
+                const end = Number(localStorage.getItem(K_END(s.id)) || localStorage.getItem(LS_END_AT(s.id)) || endMs);
+                const left = Math.max(0, end - Date.now());
+                badge.textContent = fmtLeft(left);
+              };
+              draw();
+              const t = setInterval(draw, 1000);
+              // пересчёт при любом «глобальном» сигнале
+              window.addEventListener('storage', function(ev){
+                if(ev.key==='kadry_broadcast'){ draw(); }
+              });
+            }
+
+            a.appendChild(img);
+            thumbs.appendChild(a);
+          }
+          box.appendChild(thumbs);
+          host.appendChild(box);
+        }
+
+        if(!host.children.length){
+          const p=document.createElement('p');
+          p.className='empty';
+          p.textContent='Сейчас нет активных сессий.';
+          host.appendChild(p);
+        }
+      }
+
+      function escapeHtml(s){
+        return String(s)
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'",'&#39;');
+      }
+
+      // Реакция на глобальную синхронизацию от editor.html (и vote.html)
+      window.addEventListener('storage', function(e){
+        if(e.key==='kadry_broadcast'){
+          // Перечитать список, чтобы таймеры/состояния подхватились
+          loadSeries();
+        }
+      });
+
+      // Первичная загрузка
+      loadSeries();
+    })();
+  </script>
+</body>
+</html>

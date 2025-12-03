@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Kadry — Панель модератора</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-alt: #020617;
+      --card: #020617;
+      --card-alt: #020617;
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.12);
+      --danger: #f97373;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --good: #4ade80;
+      --warn: #fbbf24;
+      --shadow-soft: 0 24px 60px rgba(15,23,42,0.7);
+      --radius-xl: 18px;
+      --radius-lg: 14px;
+      --radius-pill: 999px;
+      --transition-fast: 160ms ease-out;
+      --transition-slow: 220ms ease-out;
+      --content-max: 960px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1120 0, #020617 48%, #020617 100%);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .shell {
+      position: relative;
+      width: 100%;
+      max-width: var(--content-max);
+      background:
+        radial-gradient(circle at 0 0, rgba(56,189,248,0.08) 0, transparent 55%),
+        radial-gradient(circle at 100% 0, rgba(96,165,250,0.09) 0, transparent 60%),
+        linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+      border-radius: 28px;
+      border: 1px solid rgba(148,163,184,0.1);
+      box-shadow: var(--shadow-soft);
+      padding: 20px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(248,250,252,0.06), transparent 55%),
+        radial-gradient(circle at 85% 0, rgba(148,163,184,0.09), transparent 55%);
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    .chrome-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px 4px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(30,64,175,0.5);
+      box-shadow: 0 8px 25px rgba(15,23,42,0.8);
+      z-index: 2;
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+      margin-right: 4px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      opacity: 0.9;
+    }
+
+    .dot.red { background: #fb7185; }
+    .dot.amber { background: #facc15; }
+    .dot.green { background: #4ade80; }
+
+    .chrome-title {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chrome-spacer {
+      flex: 1;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--muted);
+      background: rgba(15,23,42,0.9);
+    }
+
+    .chip-badge {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--good);
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.35);
+    }
+
+    .chip-danger .chip-badge {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(248,113,113,0.35);
+    }
+
+    .main {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.6fr);
+      gap: 18px;
+      padding: 10px 4px 4px;
+    }
+
+    @media (max-width: 860px) {
+      .shell {
+        border-radius: 18px;
+        padding: 16px 14px 16px;
+      }
+
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.05), transparent 55%),
+                  radial-gradient(circle at 100% 0, rgba(96,165,250,0.08), transparent 60%),
+                  rgba(15,23,42,0.96);
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(148,163,184,0.2);
+      padding: 14px 13px 12px;
+      box-shadow: 0 18px 40px rgba(15,23,42,0.7);
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card + .card {
+      margin-top: 10px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .field-main {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .url-box {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(148,163,184,0.35);
+      background: rgba(15,23,42,0.9);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color: #e5e7eb;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn {
+      border: 0;
+      outline: 0;
+      cursor: pointer;
+      border-radius: var(--radius-pill);
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      color: #0f172a;
+      box-shadow: 0 12px 25px rgba(34,197,94,0.4);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .btn span.icon {
+      font-size: 13px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 16px 30px rgba(22,163,74,0.5);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      filter: brightness(0.98);
+      box-shadow: 0 10px 20px rgba(22,163,74,0.45);
+    }
+
+    .btn-secondary {
+      background: rgba(15,23,42,0.92);
+      color: var(--muted);
+      border: 1px solid rgba(148,163,184,0.35);
+      box-shadow: 0 10px 25px rgba(15,23,42,0.7);
+    }
+
+    .btn-secondary:hover {
+      box-shadow: 0 14px 28px rgba(15,23,42,0.9);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.16), transparent 65%);
+      border: 1px solid rgba(148,163,184,0.3);
+    }
+
+    .toggle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .toggle-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e5e7eb;
+    }
+
+    .toggle-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .switch {
+      position: relative;
+      width: 50px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.5);
+      box-shadow: inset 0 0 0 1px rgba(15,23,42,0.9);
+      cursor: pointer;
+      transition: background var(--transition-slow), border-color var(--transition-slow), box-shadow var(--transition-slow);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #f9fafb, #e5e7eb);
+      box-shadow: 0 4px 12px rgba(15,23,42,0.9);
+      transition: transform var(--transition-slow), background var(--transition-slow), box-shadow var(--transition-slow);
+    }
+
+    .switch[data-on="true"] {
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.5), transparent 65%), #22c55e;
+      border-color: rgba(34,197,94,0.85);
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.8), 0 12px 25px rgba(34,197,94,0.55);
+    }
+
+    .switch[data-on="true"]::after {
+      transform: translateX(22px);
+      background: radial-gradient(circle at 30% 30%, #ecfdf5, #bbf7d0);
+      box-shadow: 0 6px 16px rgba(22,163,74,0.85);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.3);
+      background: rgba(15,23,42,0.92);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #4ade80;
+    }
+
+    .pill-dot.offline {
+      background: var(--danger);
+    }
+
+    .pill-dot.paused {
+      background: var(--warn);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border-radius: 16px;
+      padding: 10px 10px 9px;
+      border: 1px solid rgba(148,163,184,0.3);
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.18), transparent 65%), rgba(15,23,42,0.96);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: #e5e7eb;
+    }
+
+    .stat-note {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .announcement-input {
+      width: 100%;
+      min-height: 60px;
+      max-height: 120px;
+      resize: vertical;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,0.35);
+      padding: 8px 9px;
+      background: rgba(15,23,42,0.92);
+      color: #e5e7eb;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .announcement-input::placeholder {
+      color: rgba(148,163,184,0.7);
+    }
+
+    .announcement-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .save-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .meta span.em {
+      color: #e5e7eb;
+    }
+
+    .tagline {
+      font-size: 12px;
+      color: rgba(148,163,184,0.85);
+    }
+
+    .tagline strong {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+
+    .admin-guard {
+      border-radius: var(--radius-xl);
+      border: 1px dashed rgba(148,163,184,0.5);
+      padding: 14px 12px;
+      font-size: 13px;
+      color: var(--muted);
+      background: radial-gradient(circle at 0 0, rgba(248,250,252,0.05), transparent 55%), rgba(15,23,42,0.9);
+      display: none;
+    }
+
+    body.no-admin .admin-guard {
+      display: block;
+    }
+
+    body.no-admin .main {
+      filter: blur(3px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(148,163,184,0.7);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: rgba(15,23,42,0.85);
+      color: rgba(226,232,240,0.95);
+      margin: 0 1px;
+    }
+
+    .faded {
+      opacity: 0.6;
+    }
+
+    .status-dot-small {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 0 4px rgba(34,197,94,0.3);
+    }
+
+    .status-dot-small.offline {
+      background: #f97373;
+      box-shadow: 0 0 0 4px rgba(248,113,113,0.32);
+    }
+
+    .status-dot-small.paused {
+      background: #facc15;
+      box-shadow: 0 0 0 4px rgba(250,204,21,0.28);
+    }
+  </style>
+
+  <!-- Supabase UMD + admin.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="admin.js"></script>
+</head>
+<body class="no-admin">
+  <div class="shell">
+    <div class="chrome-bar">
+      <div class="dots">
+        <div class="dot red"></div>
+        <div class="dot amber"></div>
+        <div class="dot green"></div>
+      </div>
+      <div class="chrome-title">kadry / moderator-panel</div>
+      <div class="chrome-spacer"></div>
+      <div class="chip" id="adminStatusChip">
+        <span class="chip-badge"></span>
+        <span>Гость</span>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Раздаваемая ссылка</div>
+            <div class="card-sub">Гости всегда попадают в каталог, но не видят эту страницу</div>
+          </div>
+          <div class="pill">
+            <span class="pill-dot" id="siteOpenDot"></span>
+            <span id="siteOpenLabel">Сайт открыт</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field">
+            <div class="field-label">Ссылка для приглашения гостей</div>
+            <div class="field-main">
+              <div class="url-box" id="publicUrl"></div>
+              <button class="btn" id="copyBtn" type="button">
+                <span class="icon">⧉</span>
+                <span>Скопировать</span>
+              </button>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Сайт доступен по ссылке</div>
+              <div class="toggle-note">Если выключить, гости по ссылке увидят сообщение о закрытии онлайн-сессии.</div>
+            </div>
+            <div class="switch" id="openSwitch" data-on="true" role="switch" aria-checked="true" tabindex="0"></div>
+          </div>
+          <div class="announcement-row">
+            <div class="field-label">Сообщение для гостей, когда сайт закрыт</div>
+            <textarea id="announcementInput" class="announcement-input" placeholder="Сегодня рисование не проводится. Мы вернёмся онлайн завтра :)"></textarea>
+            <div class="save-row">
+              <button class="btn-secondary btn" type="button" id="saveAnnouncementBtn">
+                <span class="icon">💾</span>
+                <span>Сохранить сообщение</span>
+              </button>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="tagline">По этой ссылке гости всегда попадают в <strong>каталог кадров</strong>.</span>
+            <span class="faded">Изменения сохраняются сразу, но иногда таблица ответа может чуть задерживаться.</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Онлайн и посещения</div>
+              <div class="card-sub">Минимальная статистика прямо из Supabase</div>
+            </div>
+            <div class="pill">
+              <span class="status-dot-small" id="statsStatusDot"></span>
+              <span id="statsStatusLabel">Статистика активна</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="stat-grid">
+              <div class="stat">
+                <div class="stat-label">Сейчас онлайн</div>
+                <div class="stat-value" id="statOnline">0</div>
+                <div class="stat-note">Сессии, активные за последние 5 минут</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Уникальных за сегодня</div>
+                <div class="stat-value" id="statUniqueToday">0</div>
+                <div class="stat-note">По браузерным сессиям (localStorage)</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Всего переходов</div>
+                <div class="stat-value" id="statTotalHits">0</div>
+                <div class="stat-note">Суммарно по всем сессиям</div>
+              </div>
+            </div>
+            <div class="meta">
+              <span>Обновлено: <span class="em" id="statsUpdated">–</span></span>
+              <span class="faded">Для точной аналитики всегда можно подключить отдельный сервис, но для теста этого хватит.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card admin-guard">
+          <div class="card-title" style="margin-bottom:6px;">Эта панель только для модератора</div>
+          <div>
+            Нажми сочетание <span class="kbd">дж</span>, войди как админ и страница автоматически разблокируется.
+            Чтобы выйти из админ-режима, нажми <span class="kbd">ъ</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const publicUrlEl = document.getElementById('publicUrl');
+      const copyBtn = document.getElementById('copyBtn');
+      const openSwitch = document.getElementById('openSwitch');
+      const siteOpenDot = document.getElementById('siteOpenDot');
+      const siteOpenLabel = document.getElementById('siteOpenLabel');
+      const adminStatusChip = document.getElementById('adminStatusChip');
+      const announcementInput = document.getElementById('announcementInput');
+      const saveAnnouncementBtn = document.getElementById('saveAnnouncementBtn');
+
+      const statOnline = document.getElementById('statOnline');
+      const statUniqueToday = document.getElementById('statUniqueToday');
+      const statTotalHits = document.getElementById('statTotalHits');
+      const statsUpdated = document.getElementById('statsUpdated');
+      const statsStatusDot = document.getElementById('statsStatusDot');
+      const statsStatusLabel = document.getElementById('statsStatusLabel');
+
+      let siteStateId = null;
+      let isAdmin = false;
+      let loadingState = false;
+      let loadingStats = false;
+
+      function computePublicUrl() {
+        try {
+          const base = new URL(window.location.href);
+          base.pathname = base.pathname.replace(/monitor\.html$/i, 'index.html');
+          publicUrlEl.textContent = base.href;
+        } catch (e) {
+          publicUrlEl.textContent = window.location.origin + '/index.html';
+        }
+      }
+
+      computePublicUrl();
+
+      copyBtn.addEventListener('click', async () => {
+        const url = publicUrlEl.textContent.trim();
+        if (!url) return;
+        try {
+          await navigator.clipboard.writeText(url);
+          copyBtn.querySelector('span.icon').textContent = '✓';
+          copyBtn.lastElementChild.textContent = 'Скопировано';
+          setTimeout(() => {
+            copyBtn.querySelector('span.icon').textContent = '⧉';
+            copyBtn.lastElementChild.textContent = 'Скопировать';
+          }, 1400);
+        } catch (e) {
+          console.warn('clipboard copy failed', e);
+          alert('Не удалось скопировать ссылку. Можно выделить и скопировать её руками.');
+        }
+      });
+
+      function setSwitchOn(on) {
+        openSwitch.dataset.on = on ? 'true' : 'false';
+        openSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
+        siteOpenDot.classList.toggle('offline', !on);
+        siteOpenLabel.textContent = on ? 'Сайт открыт' : 'Сайт закрыт';
+      }
+
+      async function ensureAdmin() {
+        if (typeof window.isAdmin !== 'function') return false;
+        try {
+          const ok = await window.isAdmin();
+          isAdmin = !!ok;
+        } catch (e) {
+          console.warn('isAdmin check failed', e);
+          isAdmin = false;
+        }
+        document.body.classList.toggle('no-admin', !isAdmin);
+        adminStatusChip.classList.toggle('chip-danger', !isAdmin);
+        const chipBadge = adminStatusChip.querySelector('.chip-badge');
+        const chipText = adminStatusChip.querySelector('span:last-child');
+        if (isAdmin) {
+          chipBadge.style.backgroundColor = '#4ade80';
+          chipText.textContent = 'Админ';
+        } else {
+          chipBadge.style.backgroundColor = '#f97373';
+          chipText.textContent = 'Гость';
+        }
+        return isAdmin;
+      }
+
+      async function loadSiteState() {
+        if (!isAdmin || loadingState) return;
+        if (!window.supabase || !window.supabase.createClient) return;
+        loadingState = true;
+        try {
+          const client = window.__supabaseClient || (function () {
+            return window.supabase.createClient(
+              "https://upanhirmxhfzpajvswoq.supabase.co",
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA",
+              {
+                auth: {
+                  autoRefreshToken: true,
+                  persistSession: true,
+                  storageKey: "kadry-auth"
+                }
+              }
+            );
+          })();
+          window.__supabaseClient = client;
+
+          const { data, error } = await client
+            .from('site_state')
+            .select('*')
+            .limit(1);
+
+          if (error) {
+            console.warn('load site_state error', error);
+            return;
+          }
+
+          let row = data && data[0];
+          if (!row) {
+            const ins = await client
+              .from('site_state')
+              .insert({ is_open: true })
+              .select()
+              .single();
+            if (ins.error) {
+              console.warn('insert site_state error', ins.error);
+              return;
+            }
+            row = ins.data;
+          }
+
+          siteStateId = row.id;
+          setSwitchOn(!!row.is_open);
+          announcementInput.value = row.announcement || '';
+        } catch (e) {
+          console.warn('loadSiteState failed', e);
+        } finally {
+          loadingState = false;
+        }
+      }
+
+      async function saveSiteState(partial) {
+        if (!isAdmin || !siteStateId) return;
+        const client = window.__supabaseClient;
+        if (!client) return;
+        try {
+          const { error } = await client
+            .from('site_state')
+            .update(partial)
+            .eq('id', siteStateId);
+          if (error) {
+            console.warn('update site_state error', error);
+          }
+        } catch (e) {
+          console.warn('saveSiteState failed', e);
+        }
+      }
+
+      openSwitch.addEventListener('click', () => {
+        if (!isAdmin || loadingState || !siteStateId) return;
+        const nowOn = openSwitch.dataset.on !== 'true';
+        setSwitchOn(nowOn);
+        saveSiteState({ is_open: nowOn });
+      });
+
+      openSwitch.addEventListener('keydown', (evt) => {
+        if (evt.key === ' ' || evt.key === 'Enter') {
+          evt.preventDefault();
+          openSwitch.click();
+        }
+      });
+
+      saveAnnouncementBtn.addEventListener('click', () => {
+        if (!isAdmin || !siteStateId) return;
+        saveSiteState({ announcement: announcementInput.value || null });
+      });
+
+      // --- load stats from visit_sessions ---
+      async function loadStats() {
+        if (!isAdmin || loadingStats) return;
+        const client = window.__supabaseClient;
+        if (!client) return;
+        loadingStats = true;
+        statsStatusDot.classList.remove('offline', 'paused');
+        statsStatusLabel.textContent = 'Обновляем…';
+
+        try {
+          const { data, error } = await client
+            .from('visit_sessions')
+            .select('first_seen,last_seen,hits');
+
+          if (error) {
+            console.warn('load stats error', error);
+            statsStatusDot.classList.add('offline');
+            statsStatusLabel.textContent = 'Нет данных';
+            loadingStats = false;
+            return;
+          }
+
+          const now = Date.now();
+          const fiveMinutesAgo = now - 5 * 60 * 1000;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayMs = +today;
+
+          let online = 0;
+          let uniquesToday = 0;
+          let totalHits = 0;
+
+          (data || []).forEach(row => {
+            if (!row) return;
+            const firstMs = row.first_seen ? Date.parse(row.first_seen) : 0;
+            const lastMs = row.last_seen ? Date.parse(row.last_seen) : 0;
+            const hits = typeof row.hits === 'number' ? row.hits : 0;
+
+            if (lastMs >= fiveMinutesAgo) {
+              online += 1;
+            }
+            if (firstMs >= todayMs) {
+              uniquesToday += 1;
+            }
+            totalHits += hits;
+          });
+
+          statOnline.textContent = String(online);
+          statUniqueToday.textContent = String(uniquesToday);
+          statTotalHits.textContent = String(totalHits);
+
+          const ts = new Date();
+          const pad = (n) => (n < 10 ? '0' + n : '' + n);
+          statsUpdated.textContent = pad(ts.getHours()) + ':' + pad(ts.getMinutes()) + ':' + pad(ts.getSeconds());
+
+          statsStatusDot.classList.remove('offline', 'paused');
+          statsStatusLabel.textContent = 'Статистика активна';
+        } catch (e) {
+          console.warn('loadStats failed', e);
+          statsStatusDot.classList.add('offline');
+          statsStatusLabel.textContent = 'Ошибка загрузки';
+        } finally {
+          loadingStats = false;
+        }
+      }
+
+      async function bootstrap() {
+        const ok = await ensureAdmin();
+        if (!ok) {
+          statsStatusDot.classList.add('paused');
+          statsStatusLabel.textContent = 'Войдите как админ';
+          return;
+        }
+
+        // Ensure Supabase client exists for this window
+        if (!window.__supabaseClient && window.supabase && window.supabase.createClient) {
+          window.__supabaseClient = window.supabase.createClient(
+            "https://upanhirmxhfzpajvswoq.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA",
+            {
+              auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                storageKey: "kadry-auth"
+              }
+            }
+          );
+        }
+
+        await loadSiteState();
+        await loadStats();
+
+        setInterval(async () => {
+          const stillAdmin = await ensureAdmin();
+          if (!stillAdmin) return;
+          await loadStats();
+        }, 60000);
+      }
+
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    })();
+  </script>
+</body>
+</html>
