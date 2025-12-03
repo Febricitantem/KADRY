@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kadry — Редактор</title>
+  <!-- Базовая стабильная версия редактора.
+       ВАЖНО: вернули целостную разметку и рабочий холст.
+       Логику таймера и интеграцию с голосованием можно дорабатывать
+       дальше, но эту структуру и ID элементов трогать осторожно. -->
+  <style>
+    :root {
+      --bg: #f4f4f5;
+      --text: #0f172a;
+      --muted: #64748b;
+      --card: #fff;
+      --stroke: #e5e7eb;
+      --accent: #0f172a;
+      --accent-ink: #fff;
+    }
+
+    html,body{height:100%; margin:0;}
+    body{background:#f4f4f5; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; color:#111827; overflow:auto;}
+    body{background:#f4f4f5; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; color:#111827;}
+
+    header{margin:0;} /* базовый reset, основное оформление у .site-header */
+    header a{color:#a5b4fc; text-decoration:none}
+    header a:hover{text-decoration:underline}
+    header .grow{flex:1}
+    .site-header {
+  position:relative;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  align-items:center;
+  padding:4px 14px 6px; /* уменьшили вертикальные отступы */
+  background:#f8fafc;
+  border-bottom:1px solid var(--stroke);
+  min-height:58px; /* увеличено ровно настолько, чтобы закрыть нижнюю "дыру" без появления скролла */ /* было 65px → компактнее */
+}
+    .hslot{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-weight:600;}
+    .brand{display:flex;flex-direction:column;align-items:center;line-height:1;}
+    .brand .above{font-size:30px;font-weight:800;transform:translateY(-18%);}
+    .brand .below{font-size:14px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transform:translateY(18%);}
+    .topbar-timer {
+      margin-left:auto;
+      margin-right:12px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .timer-badge {
+      display:inline-block;
+      min-width:72px;
+      text-align:center;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#334155;
+      color:#ffffff;
+      font-weight:700;
+      font-size:14px;
+      letter-spacing:.03em;
+    }
+
+    .timer-badge.warn{background:#f59e0b;}
+    .timer-badge.danger{background:#ef4444;}
+    .timer-badge{display:inline-block;min-width:120px;text-align:center;padding:6px 12px;border-radius:8px;background:#334155;color:#ffffff;font-weight:800;letter-spacing:.5px;}
+    .timer-badge.warn{background:#f59e0b;color:#ffffff;}
+    .timer-badge.danger{background:#ef4444;color:#ffffff;}
+
+    .admin-chip{display:none; margin-left:8px; padding:4px 8px; border-radius:8px; border:1px dashed #94a3b8; color:#cbd5e1; font-size:12px}
+    .admin-btn{display:none; margin-left:8px; padding:4px 10px; border-radius:8px; border:1px solid #c2410c; background:#7c2d12; color:#fff; cursor:pointer}
+
+    .wrap{height:calc(100% - 70px); display:flex;}
+
+    .side{width:280px; min-width:280px; border-right:1px solid #e5e7eb; background:#fff; overflow:hidden; padding:12px; display:flex; flex-direction:column; gap:12px;}
+    .panel{background:#f7f7f9; border:1px solid #e5e7eb; border-radius:8px; padding:10px;}
+    .panel-title{font-weight:700; margin-bottom:8px; font-size:14px;}
+    .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    .col{display:flex; flex-direction:column; gap:8px; width:100%;}
+    .divider{height:1px; background:#e5e7eb; margin:8px 0}
+    .btn{padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer}
+    .btn.primary{background:#2563eb; color:#fff; border-color:#2563eb}
+    .btn.add{background:#22c55e; color:#fff; border-color:#16a34a; font-weight:600;}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+
+    #layerList{max-height:260px; overflow-y:auto; padding-right:4px;}
+
+    .stage{flex:1; display:flex; flex-direction:column; overflow:hidden}
+    .topbar{display:flex; align-items:center; gap:14px; padding:8px 16px; background:#fff; border-bottom:1px solid #e5e7eb}
+    .canvas-holder{flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:12px}
+    #canvasWrap{position:relative; background:#fff; border:1px solid #ddd; width:100%; height:auto; flex:0 0 auto;}
+    #canvasWrap canvas{width:100%; height:100%; display:block;}
+    .bottombar{display:flex; justify-content:center; align-items:center; gap:10px; padding:10px; background:#fff; border-top:1px solid #e5e7eb}
+
+    .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:10000; backdrop-filter:blur(2px);} 
+    .overlay.show{display:flex}
+    body.modal-open{overflow:hidden;}
+    body.modal-open #canvasWrap{pointer-events:none;}
+    body.modal-open #canvasWrap canvas:last-of-type{display:none !important;}
+    .card{width:min(560px, 92vw); max-width:92vw; background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.18); padding:20px; position:relative}
+    .card h3{margin:0 0 10px; font-size:20px; font-weight:800}
+    .card .x{position:absolute; top:8px; right:10px; border:0; background:transparent; font-size:20px; cursor:pointer}
+    .card p{margin:8px 0 0 0;}
+    .actions{display:flex; justify-content:flex-end; gap:10px; margin-top:12px}
+    .danger{color:#ef4444}
+
+    body.time-expired #canvasWrap{pointer-events:none; filter:grayscale(.1);} /* блокировка рисования по таймеру */
+  
+    body.site-closed {
+      overflow: hidden;
+    }
+    .site-closed-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(6px);
+    }
+    .site-closed-card {
+      max-width: 420px;
+      width: 100%;
+      border-radius: 16px;
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.6);
+      padding: 18px 18px 16px;
+      box-shadow: 0 20px 40px rgba(15,23,42,0.8);
+      font-size: 14px;
+    }
+    .site-closed-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .site-closed-text {
+      font-size: 14px;
+      color: #cbd5f5;
+    }
+</style>
+
+  <!-- CDN Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1"></script>
+  <!-- Админ-скрипт -->
+  <script src="admin.js"></script>
+  <!-- Редактор рисования -->
+  <script src="draw.js"></script>
+</head>
+<body>
+
+  <div id="site-closed-overlay" class="site-closed-overlay" style="display:none">
+    <div class="site-closed-card">
+      <div class="site-closed-title">Онлайн сейчас закрыт</div>
+      <div class="site-closed-text" id="site-closed-message">
+        Рисование временно недоступно. Попробуйте зайти позже.
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="hslot h1">
+      <div class="brand">
+        <div class="above">Редактор</div>
+        <div class="below">Kadry</div>
+      </div>
+    </div>
+    <a class="hslot h2" href="index.html">Каталог</a>
+    <a class="hslot h3" href="votes.html">Голосования</a>
+    <a class="hslot h4" href="#">Профиль</a>
+    <span id="adminBadge" class="admin-chip">ADMIN</span>
+    <button id="admin10sBtn" class="admin-btn" title="Сократить таймер до 10 секунд">⏱ 10s</button>
+  </header>
+
+  <div class="wrap">
+    <aside class="side">
+      <a id="backSeries" href="#" class="btn" style="margin-bottom:8px; text-align:left;">← Вернуться в серию</a>
+      <div class="panel">
+        <div class="panel-title">Инструменты слоя</div>
+        <div class="col">
+          <input id="layerOpacity" name="layerOpacity" type="range" min="0" max="1" step="0.01" value="1" title="Непрозрачность выбранного слоя" style="width:100%"/>
+          <div class="row" style="justify-content:space-between;">
+            <button id="addLayerBtn" class="btn add" title="Добавить слой">＋</button>
+            <div style="display:flex; gap:8px;">
+              <button id="clearBtn" class="btn" title="Очистить слой">×</button>
+              <button id="delLayerBtn" class="btn" title="Удалить слой" style="color:#ef4444">✖</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Слои</div>
+        <div id="layerList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Референс слой</div>
+        <div class="row">
+          <input type="file" id="refInput" name="refInput" accept="image/*" class="btn"/>
+          <button id="addRefBtn" class="btn">Добавить как слой</button>
+        </div>
+        <div class="ghost">Референс отображается только в редакторе и не попадает в сохранение.
+        <br/>Все слои, <b class="danger">отмеченные красным</b>, не попадут в сохранение.</div>
+      </div>
+    </aside>
+
+    <main class="stage">
+      <div class="topbar">
+        <label>Цвет <input id="brushColor" name="brushColor" type="color" value="#000000"></label>
+        <label>Толщина <input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8"></label>
+        <label>Прозрачность кисти <input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1"></label>
+        <label>Сглаживание <input id="brushSmooth" name="brushSmooth" type="range" min="0" max="1" step="0.1" value="0"></label>
+        <label>Инструмент
+          <select id="toolSel" name="toolSel">
+            <option value="brush">Кисть</option>
+            <option value="eraser">Ластик</option>
+            <option value="fill">Заливка</option>
+            <option value="select">Выделение</option>
+          </select>
+        </label>
+        <div id="timerContainer" class="topbar-timer" aria-live="polite"></div>
+        <button id="saveDrawBtn" class="btn primary">Сохранить</button>
+      </div>
+
+      <div class="canvas-holder">
+        <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080, масштабируется в контейнер)"></div>
+      </div>
+
+      <div class="bottombar">
+        <button id="confirmSelBtn" class="btn add" title="Применить выделение" style="display:none; margin-right:24px;">✔</button>
+        <button id="undoBtn" class="btn" title="Отмена">⟵</button>
+        <button id="redoBtn" class="btn" title="Повтор">⟶</button>
+        <button id="cancelSelBtn" class="btn" title="Отменить изменения выделения" style="display:none; margin-left:24px; color:#ef4444;">✖</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="saveOverlay" class="overlay" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+      <button class="x" id="saveClose" title="Свернуть окно">✕</button>
+      <h3 id="saveTitle">Сохранение серии</h3>
+      <label for="seriesTitle">Название серии</label>
+      <input id="seriesTitle" name="seriesTitle" type="text" placeholder="Например: Глава 1"/>
+      <label for="seriesDesc">Описание</label>
+      <textarea id="seriesDesc" name="seriesDesc" placeholder="Коротко опишите идею серии (необязательно)"></textarea>
+      <div class="actions">
+        <button id="doSave" class="btn primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="timeUpOverlay" class="overlay" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="timeUpTitle">
+      <h3 id="timeUpTitle">Время истекло</h3>
+      <p>Время истекло, вы хотите сохранить рисунок?</p>
+      <div class="actions">
+        <button id="timeSave" class="btn primary">Сохранить</button>
+        <button id="timeExit" class="btn">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmExitOverlay" class="overlay" aria-hidden="true">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="confirmExitTitle">
+      <h3 id="confirmExitTitle">Подтверждение</h3>
+      <p class="danger">Вы уверены? Ваша работа будет удалена!</p>
+      <div class="actions">
+        <button id="confirmExitSave" class="btn primary">Сохранить</button>
+        <button id="confirmExitGo" class="btn">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // === Общие утилиты ===
+    let saving = false;
+    function setSaving(state) {
+      saving = !!state;
+      const topBtn = document.getElementById('saveDrawBtn');
+      const doBtn = document.getElementById('doSave');
+      [topBtn, doBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.disabled = saving;
+        btn.style.opacity = saving ? '0.6' : '';
+        if (saving) {
+          if (btn === topBtn) btn.dataset._prev = btn.textContent, btn.textContent = 'Сохранение…';
+          if (btn === doBtn) btn.dataset._prev = btn.textContent, btn.textContent = 'Сохранение…';
+        } else if (btn.dataset._prev) {
+          btn.textContent = btn.dataset._prev;
+          delete btn.dataset._prev;
+        }
+      });
+    }
+
+    const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const seriesId = Number(params.get('series')) || null;
+
+    const SUPABASE_URL = 'https://upanhirmxhfzpajvswoq.supabase.co';
+    const SUPABASE_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+  async function checkSiteOpen() {
+    try {
+      const { data, error } = await supabase
+        .from('site_state')
+        .select('is_open, announcement')
+        .limit(1)
+        .single();
+      if (error) {
+        console.warn('site_state load error', error);
+        return;
+      }
+      const open = data && data.is_open !== false;
+      if (!open) {
+        const overlay = document.getElementById('site-closed-overlay');
+        const messageEl = document.getElementById('site-closed-message');
+        if (overlay) {
+          if (messageEl) {
+            messageEl.textContent = data.announcement || 'Онлайн сейчас закрыт. Попробуйте зайти позже.';
+          }
+          overlay.style.display = 'flex';
+          document.body.classList.add('site-closed');
+        }
+      }
+    } catch (e) {
+      console.warn('checkSiteOpen failed', e);
+    }
+  }
+  checkSiteOpen();
+
+
+    // Ключи синхронизации (должны совпадать с vote.html)
+    const K_STATE = (id) => `kadry_vote_state_${id}`;
+    const K_ROUND = (id) => `kadry_round_at_${id}`;
+    const K_END = (id) => `kadry_end_at_${id}`;
+
+    const MAX_DRAW_MS = 10 * 60 * 1000;
+    const SAVE_BUFFER_MS = 60 * 1000;
+    const NET_RESERVE_MS = 30 * 1000;
+
+    function postSync(seriesId, msg) {
+      try {
+        msg.seriesId = String(seriesId);
+      } catch (_) {}
+      try {
+        msg.ts = Date.now();
+      } catch (_) {}
+
+      try {
+        const bc = new BroadcastChannel('kadry_vote');
+        bc.postMessage(msg);
+        bc.close();
+      } catch (_) {}
+
+      try {
+        localStorage.setItem('kadry_broadcast', JSON.stringify({ ...msg, ts: Date.now() }));
+      } catch (_) {
+        localStorage.setItem('kadry_broadcast', String(Date.now()));
+      }
+    }
+
+    function readStateAndEnd() {
+      let state = 'active';
+      let endMs = 0;
+      try {
+        if (seriesId) {
+          state =
+            localStorage.getItem(K_STATE(seriesId)) ||
+            localStorage.getItem(`series_${seriesId}_state`) ||
+            'active';
+          endMs =
+            Number(localStorage.getItem(K_END(seriesId))) ||
+            Number(localStorage.getItem(`series_${seriesId}_round_end_at`)) ||
+            0;
+        }
+      } catch (_) {}
+      return { state, endMs };
+    }
+
+    const linkSeries = document.getElementById('backSeries');
+    const timerContainer = document.getElementById('timerContainer');
+
+    let unsaved = false;
+    function setHeaderForMode() {
+      if (mode === 'new') {
+        if (linkSeries) linkSeries.style.display = 'none';
+        if (timerContainer) timerContainer.style.display = 'none';
+      } else {
+        if (linkSeries) {
+          linkSeries.style.display = 'inline';
+          if (seriesId) linkSeries.href = 'series.html?id=' + seriesId;
+        }
+        if (timerContainer) timerContainer.style.display = 'block';
+      }
+    }
+    function confirmLeave(e) {
+      if (mode === 'new' && unsaved) {
+        const msg = 'Вы уверены? Ваш рисунок будет утерян!';
+        e.preventDefault();
+        e.returnValue = msg;
+        return msg;
+      }
+    }
+    function hookHeaderLinks() {
+      function guard(el) {
+        if (!el) return;
+        el.addEventListener('click', function (e) {
+          if (mode === 'new' && unsaved) {
+            if (!confirm('Вы уверены? Ваш рисунок будет утерян!')) e.preventDefault();
+          }
+        });
+      }
+      guard(linkSeries);
+      window.addEventListener('beforeunload', confirmLeave);
+    }
+
+    function exportPNG() {
+      const wrap = document.getElementById('canvasWrap');
+      if (!wrap) return null;
+      let canvases = Array.from(wrap.querySelectorAll('canvas'));
+      if (document.body.classList.contains('modal-open') && canvases.length > 1) {
+        canvases = canvases.slice(0, -1);
+      }
+      if (!canvases.length) return null;
+      const W = canvases[0].width || 1920;
+      const H = canvases[0].height || 1080;
+      const out = document.createElement('canvas');
+      out.width = W;
+      out.height = H;
+      const ctx = out.getContext('2d');
+      canvases.forEach((cv) => {
+        try {
+          ctx.drawImage(cv, 0, 0);
+        } catch (_) {}
+      });
+      return out;
+    }
+
+    const overlay = document.getElementById('saveOverlay');
+    const btnOpenOverlay = document.getElementById('saveDrawBtn');
+    const btnCloseOverlay = document.getElementById('saveClose');
+    const btnDoSave = document.getElementById('doSave');
+    const inpTitle = document.getElementById('seriesTitle');
+    const inpDesc = document.getElementById('seriesDesc');
+
+    function showOverlay(el) {
+      el.classList.add('show');
+      el.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+    }
+    function hideOverlay(el) {
+      el.classList.remove('show');
+      el.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    }
+
+    btnOpenOverlay.addEventListener('click', function (e) {
+      if (saving) return;
+      if (mode === 'new') {
+        e.preventDefault();
+        showOverlay(overlay);
+      } else {
+        e.preventDefault();
+        if (!seriesId) return;
+        openDecisionFromManual();
+      }
+    });
+    btnCloseOverlay.addEventListener('click', function () {
+      hideOverlay(overlay);
+    });
+
+    async function saveNewSeries() {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const exporter =
+          window.drawAPI && typeof window.drawAPI.exportCompositeBlob === 'function'
+            ? window.drawAPI.exportCompositeBlob
+            : null;
+        if (!exporter && !document.getElementById('canvasWrap')) {
+          alert('Нет данных холста для сохранения');
+          return;
+        }
+        const title = (inpTitle.value || '').trim();
+        if (!title) {
+          alert('Введите название серии');
+          inpTitle.focus();
+          return;
+        }
+        const desc = (inpDesc.value || '').trim();
+
+        const blob = exporter
+          ? await exporter()
+          : await new Promise((r) => exportPNG().toBlob(r, 'image/png'));
+        if (!blob || !blob.size) {
+          alert('Пустой экспорт — на холсте нет данных');
+          return;
+        }
+        const file = new File([blob], 'first.png', { type: 'image/png' });
+        const rand = Math.random().toString(36).slice(2, 8);
+        let fileName = `first/${Date.now()}_${rand}.png`;
+
+        let up = await supabase.storage
+          .from('Frames')
+          .upload(fileName, file, { contentType: 'image/png', cacheControl: '3600', upsert: false });
+        if (up.error) {
+          const alt = `${Date.now()}_${rand}_${Math.floor(performance.now())}.png`;
+          let up2 = await supabase.storage
+            .from('Frames')
+            .upload(alt, file, { contentType: 'image/png', cacheControl: '3600', upsert: true });
+          if (up2.error) {
+            alert('Не удалось загрузить изображение');
+            return;
+          }
+          fileName = alt;
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('Frames').getPublicUrl(fileName);
+        const imageUrl = (publicUrlData && (publicUrlData.publicUrl || publicUrlData.publicURL)) || null;
+        if (!imageUrl) {
+          alert('Не удалось получить публичный URL изображения');
+          return;
+        }
+
+
+        const payload = desc ? { title, description: desc } : { title };
+
+        const ins = await supabase.from('series').insert([payload]).select('id').single();
+        if (ins.error || !ins.data) {
+          alert('Не удалось создать серию');
+          return;
+        }
+        const newSeriesId = ins.data.id;
+
+        const { error: fErr } = await supabase.from('frames').insert([
+          {
+            series_id: newSeriesId,
+            image_url: imageUrl,
+            committed: true,
+            in_vote: false,
+            history: false,
+            order_index: 1,
+          },
+        ]);
+        if (fErr) {
+          alert('Не удалось создать первый кадр');
+          return;
+        }
+
+        unsaved = false;
+        location.replace('series.html?id=' + newSeriesId);
+      } catch (err) {
+        console.error(err);
+        alert('Ошибка сохранения серии');
+      } finally {
+        setSaving(false);
+        hideOverlay(overlay);
+      }
+    }
+    btnDoSave.addEventListener('click', saveNewSeries);
+
+    async function getNextOrderIndex(seriesId) {
+      try {
+        const r = await supabase
+          .from('frames')
+          .select('order_index')
+          .eq('series_id', seriesId)
+          .eq('committed', true)
+          .order('order_index', { ascending: false })
+          .limit(1);
+        if (r.error) throw r.error;
+        const max =
+          (r.data && r.data[0] && (r.data[0].order_index || 0)) ||
+          0;
+        const n = typeof max === 'number' && isFinite(max) ? max : parseInt(max, 10) || 0;
+        return n + 1;
+      } catch (e) {
+        console.warn('getNextOrderIndex error', e);
+        return 1;
+      }
+    }
+
+    window.saveFrameToSeries = async function (seriesId, supabaseClient) {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const exporter =
+          window.drawAPI && typeof window.drawAPI.exportCompositeBlob === 'function'
+            ? window.drawAPI.exportCompositeBlob
+            : null;
+        if (!exporter && !document.getElementById('canvasWrap')) {
+          alert('Нет данных холста для сохранения');
+          return;
+        }
+        const blob = exporter
+          ? await exporter()
+          : await new Promise((r) => exportPNG().toBlob(r, 'image/png'));
+        if (!blob || !blob.size) {
+          alert('Пустой экспорт — на холсте нет данных');
+          return;
+        }
+        const file = new File([blob], 'candidate.png', { type: 'image/png' });
+
+        const rand = Math.random().toString(36).slice(2, 8);
+        let fileName = `candidates/${Date.now()}_${rand}.png`;
+        let up = await supabaseClient.storage
+          .from('Frames')
+          .upload(fileName, file, { contentType: 'image/png', cacheControl: '3600', upsert: false });
+        if (up.error) {
+          const alt = `${Date.now()}_${rand}_${Math.floor(performance.now())}.png`;
+          let up2 = await supabaseClient.storage
+            .from('Frames')
+            .upload(alt, file, { contentType: 'image/png', cacheControl: '3600', upsert: true });
+          if (up2.error) {
+            alert('Не удалось загрузить изображение');
+            return;
+          }
+          fileName = alt;
+        }
+        const { data: pub } = supabaseClient.storage.from('Frames').getPublicUrl(fileName);
+        const imageUrl = (pub && (pub.publicUrl || pub.publicURL)) || null;
+        if (!imageUrl) {
+          alert('Не удалось получить URL изображения');
+          return;
+        }
+
+        const nextOrder = await getNextOrderIndex(seriesId);
+
+        let exCount = 0;
+        try {
+          const c = await supabaseClient
+            .from('frames')
+            .select('id', { count: 'exact', head: true })
+            .eq('series_id', seriesId)
+            .eq('in_vote', true)
+            .eq('order_index', nextOrder);
+          exCount = c.count || 0;
+        } catch (_) {
+          exCount = 0;
+        }
+        const isFirstInRound = exCount === 0;
+
+        let insertedId = null;
+        let insErr = null;
+        try {
+          const ins = await supabaseClient
+            .from('frames')
+            .insert([
+              {
+                series_id: seriesId,
+                image_url: imageUrl,
+                committed: false,
+                in_vote: true,
+                history: false,
+                order_index: nextOrder,
+              },
+            ])
+            .select('id')
+            .single();
+          if (ins.error) insErr = ins.error;
+          else insertedId = ins.data?.id || null;
+        } catch (e) {
+          insErr = e;
+        }
+        if (insErr) {
+          const probe = await supabaseClient
+            .from('frames')
+            .select('id')
+            .eq('series_id', seriesId)
+            .eq('order_index', nextOrder)
+            .eq('image_url', imageUrl)
+            .eq('in_vote', true)
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (probe?.data?.id) insertedId = probe.data.id;
+          else {
+            console.warn('insert error', insErr);
+            alert('Не удалось сохранить кадр');
+            return;
+          }
+        }
+
+        const evt = isFirstInRound
+          ? { type: 'unfreeze', round: { startAt: new Date().toISOString() } }
+          : { type: 'new_frame', firstInRound: false };
+
+        try {
+          sessionStorage.setItem(
+            'kadry_pending_event_' + String(seriesId),
+            JSON.stringify({ ...evt, seriesId: String(seriesId) })
+          );
+        } catch (_) {}
+
+        postSync(seriesId, evt);
+
+        await new Promise((r) => setTimeout(r, 150));
+        location.replace('vote.html?series=' + seriesId + '&engine=on');
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сохранения кадра');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    async function initEditor() {
+      if (typeof window.initDrawEditor !== 'function') {
+        console.error('initDrawEditor не найден — проверь загрузку draw.js');
+        return;
+      }
+      const cfg = { supabase };
+      if (seriesId) cfg.seriesId = seriesId;
+      if (seriesId && mode !== 'new') {
+        try {
+          const { data, error } = await supabase
+            .from('frames')
+            .select('image_url')
+            .eq('series_id', seriesId)
+            .eq('committed', true)
+            .order('order_index', { ascending: false })
+            .limit(1);
+          if (!error && data?.length && data[0]?.image_url) cfg.baseImageUrl = data[0].image_url;
+        } catch (e) {
+          console.warn('load base frame error', e);
+        }
+      }
+      window.initDrawEditor(cfg);
+    }
+
+    function fitCanvasWrap() {
+      const holder = document.querySelector('.canvas-holder');
+      const wrapEl = document.getElementById('canvasWrap');
+      if (!holder || !wrapEl) return;
+      const r = holder.getBoundingClientRect();
+      const availW = r.width;
+      const availH = r.height;
+      const targetW = Math.min(availW, (availH * 16) / 9);
+      const targetH = (targetW * 9) / 16;
+      wrapEl.style.width = targetW + 'px';
+      wrapEl.style.height = targetH + 'px';
+    }
+    window.addEventListener('resize', fitCanvasWrap);
+
+    function markUnsaved() {
+      if (mode === 'new') unsaved = true;
+    }
+    document.addEventListener('pointerdown', markUnsaved, { passive: true });
+    document.addEventListener('keydown', function (e) {
+      const t = e.target;
+      const tag = (t && t.tagName) || '';
+      const lower = tag.toLowerCase();
+      if (lower !== 'input' && lower !== 'textarea') markUnsaved();
+    });
+
+    let drawDeadline = null;
+    let drawTimerId = null;
+    let drawExpired = false;
+
+    let decisionOverlay = null;
+    let decisionTimerId = null;
+
+    function formatMMSS(ms) {
+      const s = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(s / 60);
+      const ss = String(s % 60).padStart(2, '0');
+      return `${m}:${ss}`;
+    }
+
+    function setTimerClass(el, remMs) {
+      if (!el) return;
+      el.classList.remove('warn', 'danger');
+      if (remMs <= 60 * 1000) el.classList.add('danger');
+      else if (remMs <= 3 * 60 * 1000) el.classList.add('warn');
+    }
+
+    function startDrawTimer(customDeadlineMs) {
+      if (!seriesId || mode === 'new') return;
+
+      const { state, endMs } = readStateAndEnd();
+      const now = Date.now();
+
+      if (typeof customDeadlineMs === 'number') {
+        drawDeadline = customDeadlineMs;
+      } else if (state === 'winner_frozen' || state === 'replay_frozen') {
+        drawDeadline = now + MAX_DRAW_MS;
+      } else {
+        if (!endMs) {
+          drawDeadline = now + MAX_DRAW_MS;
+        } else {
+          const remain = endMs - now;
+          if (remain <= SAVE_BUFFER_MS) {
+            alert(
+              'До конца голосования осталось слишком мало времени. Начать рисование нельзя.'
+            );
+            location.replace('series.html?id=' + seriesId);
+            return;
+          }
+          const allowed = Math.min(MAX_DRAW_MS, remain - SAVE_BUFFER_MS);
+          drawDeadline = now + allowed;
+        }
+      }
+
+      drawExpired = false;
+
+      let badge = document.getElementById('timerBadge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'timerBadge';
+        badge.className = 'timer-badge';
+        timerContainer.innerHTML = '';
+        timerContainer.appendChild(badge);
+      }
+
+      if (drawTimerId) clearInterval(drawTimerId);
+
+      function tick() {
+        const now = Date.now();
+        let rem = drawDeadline - now;
+        if (rem <= 0) {
+          rem = 0;
+          badge.textContent = '0:00';
+          setTimerClass(badge, 0);
+          clearInterval(drawTimerId);
+          drawTimerId = null;
+          if (!drawExpired) {
+            drawExpired = true;
+            lockDrawingAndOpenDecision();
+          }
+          return;
+        }
+        badge.textContent = formatMMSS(rem);
+        setTimerClass(badge, rem);
+      }
+
+      tick();
+      drawTimerId = setInterval(tick, 250);
+    }
+
+    function lockDrawingAndOpenDecision() {
+      document.body.classList.add('time-expired');
+      openDecisionModal('auto');
+      startDecisionTimer();
+    }
+
+    function openDecisionFromManual() {
+      openDecisionModal('manual');
+      startDecisionTimer();
+    }
+
+    function openDecisionModal(modeKind) {
+      const kind = modeKind || 'manual';
+      if (!decisionOverlay) {
+        decisionOverlay = document.createElement('div');
+        decisionOverlay.className = 'overlay';
+        decisionOverlay.innerHTML = `
+          <div class="card">
+            <h3>Сохранение рисунка</h3>
+            <p id="decMain"></p>
+            <div class="actions">
+              <button id="decSave" class="btn primary">Сохранить</button>
+              <button id="decContinue" class="btn">Продолжить рисовать</button>
+            </div>
+          </div>`;
+        document.body.appendChild(decisionOverlay);
+
+        const saveBtn = decisionOverlay.querySelector('#decSave');
+        const contBtn = decisionOverlay.querySelector('#decContinue');
+
+        saveBtn.onclick = function () {
+          if (typeof window.saveFrameToSeries === 'function') {
+            window.saveFrameToSeries(seriesId, supabase);
+          }
+        };
+
+        contBtn.onclick = function () {
+          if (drawExpired) {
+            showAutoDelete();
+          } else {
+            closeDecisionModal();
+          }
+        };
+      }
+
+      const contBtn = decisionOverlay.querySelector('#decContinue');
+      if (contBtn) {
+        contBtn.textContent = drawExpired ? 'Удалить рисунок' : 'Продолжить рисовать';
+      }
+      decisionOverlay.dataset.mode = kind;
+      decisionOverlay.classList.add('show');
+      document.body.classList.add('modal-open');
+    }
+
+    function closeDecisionModal() {
+      if (decisionOverlay) decisionOverlay.classList.remove('show');
+      document.body.classList.remove('modal-open');
+    }
+
+    function startDecisionTimer() {
+      const main = document.getElementById('decMain');
+      if (!main) return;
+
+      if (decisionTimerId) clearInterval(decisionTimerId);
+
+      function tick() {
+        const { state, endMs } = readStateAndEnd();
+        const now = Date.now();
+
+        if (state === 'winner_frozen' || state === 'replay_frozen' || !endMs) {
+          main.textContent =
+            'Сейчас голосование на паузе. Вы можете не спешить с решением — ограничений по времени пока нет.';
+          return;
+        }
+
+        const decisionDeadline = endMs - NET_RESERVE_MS;
+        const remain = decisionDeadline - now;
+
+        if (remain <= 0) {
+          clearInterval(decisionTimerId);
+          decisionTimerId = null;
+          showAutoDelete();
+          return;
+        }
+
+        main.textContent =
+          'На решение о сохранении у вас осталось: ' + formatMMSS(remain) + '.';
+      }
+
+      tick();
+      decisionTimerId = setInterval(tick, 500);
+    }
+
+    function showAutoDelete() {
+      closeDecisionModal();
+      if (decisionTimerId) {
+        clearInterval(decisionTimerId);
+        decisionTimerId = null;
+      }
+      if (drawTimerId) {
+        clearInterval(drawTimerId);
+        drawTimerId = null;
+      }
+
+      document.body.classList.add('time-expired');
+
+      const auto = document.createElement('div');
+      auto.className = 'overlay show';
+      auto.innerHTML = `
+        <div class="card">
+          <h3>Ну вот…</h3>
+          <p>Ваш рисунок удалился :(</p>
+          <div class="actions">
+            <button id="autoOk" class="btn primary">Ладно…</button>
+          </div>
+        </div>`;
+      document.body.appendChild(auto);
+
+      auto.querySelector('#autoOk').onclick = function () {
+        location.replace('index.html');
+      };
+    }
+
+    const adminBadge = document.getElementById('adminBadge');
+    const admin10sBtn = document.getElementById('admin10sBtn');
+    let adminFlag = false;
+
+    function applyAdminUI() {
+      if (!adminBadge || !admin10sBtn) return;
+      if (adminFlag) {
+        // Админский бейдж показываем всегда, если пользователь админ.
+        adminBadge.style.display = 'inline-flex';
+        // Кнопка "10s" должна быть видна только при продолжении серии,
+        // то есть когда мы уже знаем seriesId (редактор продолжения).
+        const showBtn = !!seriesId;
+        admin10sBtn.style.display = showBtn ? 'inline-flex' : 'none';
+      } else {
+        adminBadge.style.display = 'none';
+        admin10sBtn.style.display = 'none';
+      }
+    }
+
+    function refreshAdminFromGlobal() {
+      try {
+        // Опираемся на класс is-admin на <html>, который выставляет admin.js.
+        // Этого достаточно для UI (а доступ к операциям всё равно контролирует RLS).
+        adminFlag = document.documentElement.classList.contains('is-admin');
+      } catch (_) {
+        adminFlag = false;
+      }
+      applyAdminUI();
+    }
+
+    if (admin10sBtn) {
+      admin10sBtn.addEventListener('click', function () {
+        if (!adminFlag) return;
+        const now = Date.now();
+        startDrawTimer(now + 10 * 1000);
+      });
+    }
+
+    // Реагируем на события admin.js
+    window.addEventListener('admin:enabled', function () {
+      adminFlag = true;
+      applyAdminUI();
+    });
+    window.addEventListener('admin:disabled', function () {
+      adminFlag = false;
+      applyAdminUI();
+    });
+
+    function startAll() {
+      setHeaderForMode();
+      hookHeaderLinks();
+      initEditor();
+      fitCanvasWrap();
+      requestAnimationFrame(fitCanvasWrap);
+      refreshAdminFromGlobal();
+      if (mode !== 'new' && seriesId) startDrawTimer();
+      if (typeof window.maybeShowIntroModal === 'function') {
+        try {
+          window.maybeShowIntroModal();
+        } catch (_) {}
+      }
+    }
+
+    startAll();
+  })();
+  </script>
+</body>
+</html>
