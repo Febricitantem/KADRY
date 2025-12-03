@@ -354,15 +354,32 @@
     function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
 
     function setupStroke(ctx, l) {
-      ctx.globalAlpha = clamp(l.opacity * alpha(), 0, 1);
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = size();
+      var a = alpha();
+      var isPreview = (ctx === preview.ctx);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = size();
+
       if (tool() === 'eraser') {
-        ctx.globalCompositeOperation = 'source-over';
-        var col = color() || '#ffffff';
-        ctx.strokeStyle = col; ctx.fillStyle = col;
+        if (isPreview) {
+          // На превью рисуем обычным штрихом, чтобы не "пробивать дырки"
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = clamp(l.opacity * a, 0, 1);
+          ctx.strokeStyle = '#000000';
+          ctx.fillStyle = '#000000';
+        } else {
+          // На реальном слое ластик стирает до прозрачности
+          ctx.globalCompositeOperation = 'destination-out';
+          // Сила стирания управляется ползунком "прозрачность кисти"
+          ctx.globalAlpha = clamp(a, 0, 1);
+          ctx.strokeStyle = '#000000';
+          ctx.fillStyle = '#000000';
+        }
       } else {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = color(); ctx.fillStyle = color();
+        ctx.globalAlpha = clamp(l.opacity * a, 0, 1);
+        ctx.strokeStyle = color();
+        ctx.fillStyle = color();
       }
     }
 
