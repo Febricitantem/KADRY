@@ -331,7 +331,7 @@
     <section class="desc-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <h2 style="margin:0">Описание серии</h2>
-        <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
+        <button id="desc-edit-btn" class="btn" title="Редактировать описание">✎</button>
       </div>
       <div id="series-desc" class="desc-text" style="margin-top:8px">Описание отсутствует.</div>
       <form id="desc-form" style="display:none; margin-top:10px;" onsubmit="return false;">
@@ -700,11 +700,7 @@
         return;
       }
       // Описание может менять только админ
-      if(!isAdmin){
-        alert('Описание может менять только админ');
-        return;
-      }
-      supabase
+            supabase
         .from('series')
         .update({ description: content })
         .eq('id', seriesId)
