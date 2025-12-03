@@ -346,12 +346,51 @@
       return { canvas: c, ctx: ctx };
     })();
 
+    // ---- зум и панорамирование
+    var zoomLevel = 1;
+    var minZoom = 0.5;
+    var maxZoom = 4;
+    var panX = 0;
+    var panY = 0;
+    var isPanning = false;
+    var panStartX = 0;
+    var panStartY = 0;
+    var panStartOffsetX = 0;
+    var panStartOffsetY = 0;
+
+    function applyViewTransform() {
+      if (!wrap) return;
+      wrap.style.transformOrigin = 'center center';
+      wrap.style.transform =
+        'translate(' + panX + 'px,' + panY + 'px) scale(' + zoomLevel + ')';
+    }
+    applyViewTransform();
+
     // ---- параметры кисти
     function tool() { return toolSel ? toolSel.value : 'brush'; }
     function size() { return sizeInp ? Number(sizeInp.value) || 8 : 8; }
     function color() { return colorInp ? colorInp.value : '#000000'; }
     function alpha() { return clamp(alphaInp ? Number(alphaInp.value) || 1 : 1, 0, 1); }
     function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
+
+    function updateToolCursor() {
+      if (!wrap) return;
+      var t = tool();
+      if (t === 'zoom') {
+        wrap.style.cursor = isPanning ? 'grabbing' : 'grab';
+      } else if (t === 'select') {
+        wrap.style.cursor = 'crosshair';
+      } else {
+        wrap.style.cursor = 'crosshair';
+      }
+    }
+
+    if (toolSel) {
+      toolSel.addEventListener('change', function () {
+        updateToolCursor();
+        redrawPreview();
+      });
+    }
 
     function setupStroke(ctx, l) {
       var a = alpha();
@@ -722,11 +761,24 @@
       redrawPreview(); pathPoints = [];
     }
 
+
+
     // ---- pointer события
     wrap.addEventListener('pointerdown', function (e) {
       if (isTimeExpired()) return;
       try { wrap.setPointerCapture(e.pointerId); } catch (_) { }
       e.preventDefault();
+
+      // Режим лупы: панорамирование
+      if (tool() === 'zoom') {
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartOffsetX = panX;
+        panStartOffsetY = panY;
+        updateToolCursor();
+        return;
+      }
 
       if (tool() === 'select') {
         // ПКМ — отмена выделения и возврат объекта
@@ -759,10 +811,63 @@
       beginDraw(e);
     });
 
+    wrap.addEventListener('pointermove', function (e) {
+      if (isTimeExpired()) return;
+      if (isPanning && tool() === 'zoom') {
+        e.preventDefault();
+        var dx = e.clientX - panStartX;
+        var dy = e.clientY - panStartY;
+        panX = panStartOffsetX + dx;
+        panY = panStartOffsetY + dy;
+        applyViewTransform();
+        return;
+      }
+      moveDraw(e);
+    });
+
+    wrap.addEventListener('pointerup', function (e) {
+      if (isTimeExpired()) return;
+      if (isPanning && tool() === 'zoom') {
+        isPanning = false;
+        updateToolCursor();
+        return;
+      }
+      endDraw(e);
+    });
+    wrap.addEventListener('pointerleave', function (e) {
+      if (isTimeExpired()) return;
+      if (isPanning && tool() === 'zoom') {
+        isPanning = false;
+        updateToolCursor();
+        return;
+      }
+      endDraw(e);
+    });
+    wrap.addEventListener('contextmenu', function (e) { if (tool() === 'select') { e.preventDefault(); } });
+
+
+
     wrap.addEventListener('pointermove', moveDraw);
     wrap.addEventListener('pointerup', endDraw);
     wrap.addEventListener('pointerleave', endDraw);
     wrap.addEventListener('contextmenu', function (e) { if (tool() === 'select') { e.preventDefault(); } });
+
+
+    // Зум колесиком мыши в режиме лупы
+    wrap.addEventListener('wheel', function (e) {
+      if (isTimeExpired()) return;
+      if (tool() !== 'zoom') return;
+      e.preventDefault();
+      var delta = e.deltaY || 0;
+      if (delta === 0) return;
+      var factor = delta > 0 ? 1.1 : 1 / 1.1;
+      var newZoom = zoomLevel * factor;
+      newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+      // Снэп к 1.0 чтобы легко вернуться в исходный масштаб
+      if (Math.abs(newZoom - 1) < 0.05) newZoom = 1;
+      zoomLevel = newZoom;
+      applyViewTransform();
+    }, { passive: false });
 
     document.addEventListener('mousemove', function (e) {
       if (isTimeExpired()) return;
