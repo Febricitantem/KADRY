@@ -266,6 +266,56 @@
       font-size: 14px;
       color: #cbd5f5;
     }
+
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15,23,42,0.78);
+      backdrop-filter: blur(6px);
+    }
+    .image-modal-inner {
+      position: relative;
+      max-width: 96vw;
+      max-height: 96vh;
+      padding-bottom: 12vh;
+    }
+    .image-modal-img {
+      display: block;
+      max-width: 100%;
+      max-height: 75vh;
+      border-radius: 14px;
+      box-shadow: 0 20px 40px rgba(15,23,42,0.9);
+      background: #020617;
+      border: 1px solid rgba(148,163,184,0.7);
+    }
+    .image-modal-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(15,23,42,0.85);
+      color: #e5e7eb;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(15,23,42,0.8);
+    }
+    .image-modal-close:hover {
+      background: #ef4444;
+      color: #f9fafb;
+    }
+
 </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1"></script>
   <script>
@@ -311,6 +361,13 @@
       </div>
     </div>
   </div>
+  <div id="image-modal" class="image-modal" style="display:none">
+    <div class="image-modal-inner">
+      <button type="button" id="image-modal-close" class="image-modal-close">×</button>
+      <img id="image-modal-img" class="image-modal-img" alt="Просмотр кадра">
+    </div>
+  </div>
+
 
   <header class="site-header">
     <div class="hslot h1">
@@ -371,6 +428,43 @@
       const SUPABASE_URL = "https://upanhirmxhfzpajvswoq.supabase.co";
       const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA";
       const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      const imageModal = document.getElementById('image-modal');
+      const imageModalImg = document.getElementById('image-modal-img');
+      const imageModalClose = document.getElementById('image-modal-close');
+
+      function openImageModal(src, alt) {
+        if (!imageModal || !imageModalImg) return;
+        imageModalImg.src = src;
+        imageModalImg.alt = alt || 'Кадр';
+        imageModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeImageModal() {
+        if (!imageModal) return;
+        imageModal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      if (imageModalClose) {
+        imageModalClose.addEventListener('click', function () {
+          closeImageModal();
+        });
+      }
+      if (imageModal) {
+        imageModal.addEventListener('click', function (e) {
+          if (e.target === imageModal) {
+            closeImageModal();
+          }
+        });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+          closeImageModal();
+        }
+      });
+
   async function checkSiteOpen() {
     try {
       const { data, error } = await db
@@ -932,9 +1026,13 @@
           const wrap = document.createElement('div');
           wrap.className = 'frame';
 
-          const img = document.createElement('img');
+                    const img = document.createElement('img');
           img.alt = 'Кадр #' + frame.id;
           img.src = frame.image_url;
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', function () {
+            openImageModal(frame.image_url, 'Кадр #' + frame.id);
+          });
           wrap.appendChild(img);
 
           const ctr = document.createElement('div');
