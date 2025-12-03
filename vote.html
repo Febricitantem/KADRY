@@ -697,7 +697,7 @@
       }
 
       // --- Отправка голоса ---
-      async function sendVote(frameId, value){
+            async function sendVote(frameId, value){
         if(!seriesId) return;
         const state = getState();
         const endMs = getEndMs();
@@ -714,45 +714,25 @@
         }
 
         try{
-          if(isHtmlAdmin()){
-            // Админ голосует через RPC vote_admin без ограничения количества голосов.
-            let adminToken = null;
-            try{
-              adminToken = localStorage.getItem('admin_token') || localStorage.getItem('kadry_admin_token');
-            }catch(_){/* noop */}
-            const { data, error } = await db.rpc('vote_admin', {
-              _frame_id: frameId,
-              _value: value,
-              _round_id: roundId,
-              _admin_token: adminToken || ''
-            });
-            if(error || data !== true){
-              console.warn('admin vote error', error || data);
-              alert('Не удалось сохранить голос администратора.');
-              return;
+          const payload = {
+            frame_id: frameId,
+            value: value,
+            round_id: roundId,
+            anon_id: anonId
+          };
+          const { error } = await db.from('votes').insert([payload]);
+          if(error){
+            const msg = (error.message || '').toLowerCase();
+            if(error.code === '23505' || /duplicate/.test(msg) || /already/.test(msg)){
+              alert('Вы можете поставить только 1 оценку на кадр');
+            }else{
+              console.warn('vote insert error', error);
+              alert('Не удалось сохранить голос. Попробуйте ещё раз.');
             }
-          } else {
-            // Обычный аноним: не больше одного голоса на кадр в раунде.
-            const payload = {
-              frame_id: frameId,
-              value: value,
-              round_id: roundId,
-              anon_id: anonId
-            };
-            const { error } = await db.from('votes').insert([payload]);
-            if(error){
-              const msg = (error.message || '').toLowerCase();
-              if(error.code === '23505' || /duplicate/.test(msg) || /already/.test(msg)){
-                alert('Вы можете поставить только 1 оценку на кадр');
-              }else{
-                console.warn('vote insert error', error);
-                alert('Не удалось сохранить голос. Попробуйте ещё раз.');
-              }
-              return;
-            }
+            return;
           }
 
-          // Успех — перечитаем результаты и перерисуем
+// Успех — перечитаем результаты и перерисуем
           scoresMap = await readScores(activeFrames.map(f => f.id));
         // Сохраняем снимок счёта для последующей заморозки (winner_frozen / replay_frozen)
         try{
@@ -766,6 +746,7 @@
           alert('Ошибка при голосовании.');
         }
       }
+
 
       // --- Правила определения победителя ---
       function computeWinner(){
