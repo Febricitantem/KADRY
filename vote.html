@@ -898,6 +898,7 @@
       }
 
       // --- Применение результата раунда ---
+      
       async function finalizeRound(){
         if(!isHtmlAdmin()){
           alert('Только администратор может завершать голосование.');
@@ -910,85 +911,61 @@
           return;
         }
 
-        // Перечитываем очки на всякий случай
-        scoresMap = await readScores(activeFrames.map(function(f){ return f.id; }));
+        if(!activeFrames || !activeFrames.length){
+          alert('Пока нет кадров для голосования.');
+          return;
+        }
+
+        // Перечитываем очки на всякий случай и считаем локальный результат
+        try{
+          scoresMap = await readScores(activeFrames.map(function(f){ return f.id; }));
+        }catch(e){
+          console.error('readScores failed before finalize', e);
+        }
         const result = computeWinner();
 
-        if(result.type === 'replay'){
-          // Переигровка вручную: победитель не определён.
-          // ВАЖНО: при таком завершении таймер должен вести себя так же,
-          // как при естественном окончании времени — обнулиться.
-          const nowMs = Date.now();
-          localStorage.setItem(K_END(seriesId), String(nowMs));
-          localStorage.setItem(LS_END_AT(seriesId), String(nowMs));
-
-          setState('replay_frozen');
-          alert('Победитель не определён — переигровка по тем же кадрам.');
-          draw();
-          return;
-        }
-
-        const winnerFrame = result.frame;
-        if(!winnerFrame){
-          setState('replay_frozen');
-          alert('Не удалось определить победителя.');
-          draw();
-          return;
-        }
-
-        // Перед изменением состояния сохраняем текущий снимок счёта в localStorage,
-        // чтобы в замороженном экране были видны результаты голосования.
+        // Сохраняем снимок счёта в localStorage, чтобы в замороженном экране были видны результаты
         try{
           const arr = [];
-          scoresMap.forEach(function(v, k){ arr.push({ frame_id:k, score:v.score||0, votes:v.votes||0 }); });
+          scoresMap.forEach(function(v, k){
+            arr.push({ frame_id:k, score:v.score||0, votes:v.votes||0 });
+          });
           localStorage.setItem(LS_SCORES(seriesId), JSON.stringify(arr));
         }catch(_){/* noop */}
 
-        // Помечаем победителя как committed, остальных — в историю
+        // Официальную финализацию делает только серверная функция voting_finalize_round
         try{
-          const ids = activeFrames.map(function(f){ return f.id; });
-          const loserIds = ids.filter(function(id){ return id !== winnerFrame.id; });
-
-          const updates = [];
-
-          updates.push(
-            db.from('frames')
-              .update({ committed:true, in_vote:false, history:false })
-              .eq('id', winnerFrame.id)
-          );
-
-          if(loserIds.length){
-            updates.push(
-              db.from('frames')
-                .update({ in_vote:false, history:true, committed:false })
-                .in('id', loserIds)
-            );
+          const { error } = await db.rpc('voting_finalize_round', { p_series_id: seriesId });
+          if(error){
+            console.error('voting_finalize_round error', error);
+            alert('Не удалось зафиксировать результат на сервере.');
+            return;
           }
+        }catch(e){
+          console.error('voting_finalize_round failed', e);
+          alert('Ошибка при фиксации результата на сервере.');
+          return;
+        }
 
-          const results = await Promise.all(updates);
-          for(const r of results){
-            if(r.error){
-              console.error('frames update error', r.error);
-              alert('Не удалось зафиксировать результат голосования.');
-              return;
-            }
-          }
+        // Сбрасываем таймер в ноль локально, чтобы заморозка вела себя так же,
+        // как если бы просто закончилось время.
+        const nowMs = Date.now();
+        localStorage.setItem(K_END(seriesId), String(nowMs));
+        localStorage.setItem(LS_END_AT(seriesId), String(nowMs));
 
-          // Сбрасываем таймер в ноль, чтобы заморозка вела себя так же,
-          // как если бы просто закончилось время.
-          const nowMs = Date.now();
-          localStorage.setItem(K_END(seriesId), String(nowMs));
-          localStorage.setItem(LS_END_AT(seriesId), String(nowMs));
-
+        // Состояние и сообщения для пользователя определяем по локальному результату
+        if(result && result.type === 'winner' && result.frame){
           setState('winner_frozen');
           alert('Победитель раунда зафиксирован.');
-          // После фиксации можно перезагрузить кадры: следующих кандидатов пока нет
-          await refresh();
-        }catch(e){
-          console.error('finalizeRound failed', e);
-          alert('Ошибка при фиксации результата.');
+        }else{
+          setState('replay_frozen');
+          alert('Победитель не определён — переигровка по тем же кадрам.');
         }
+
+        // Обновляем кадры после серверной финализации
+        await refresh();
       }
+
 
       // --- Рисование карточек кадров ---
       function draw(){
@@ -1231,6 +1208,22 @@
             localStorage.setItem(LS_END_AT(seriesId), String(e));
             localStorage.setItem(K_CAP(seriesId), String(e));
             localStorage.setItem(K_EXT_TS(seriesId), '0');
+
+            if (hasDB() && seriesId) {
+              try{
+                await db
+                  .from('series')
+                  .update({
+                    vote_round_id: nowIso,
+                    vote_round_start_at: nowIso,
+                    vote_round_end_at: new Date(e).toISOString(),
+                    vote_state: 'active'
+                  })
+                  .eq('id', seriesId);
+              }catch(e){
+                console.warn('series round update failed (refresh init)', e);
+              }
+            }
           } else if (endMs <= now) {
             // Время раунда вышло. Если состояние до сих пор "active", переводим его
             // в "replay_frozen", чтобы страница не перезапускала таймер простым визитом пользователя.
@@ -1262,6 +1255,19 @@
             if (nextEnd > curEnd) {
               localStorage.setItem(K_END(seriesId), String(nextEnd));
               localStorage.setItem(LS_END_AT(seriesId), String(nextEnd));
+
+              if (hasDB() && seriesId) {
+                try{
+                  await db
+                    .from('series')
+                    .update({
+                      vote_round_end_at: new Date(nextEnd).toISOString()
+                    })
+                    .eq('id', seriesId);
+                }catch(e){
+                  console.warn('series round update failed (extend)', e);
+                }
+              }
             }
             console.log('[kadry refresh] extend by new frame', { curEnd, nextEnd, maxEndFromNow });
           } else {
@@ -1329,6 +1335,23 @@
             localStorage.setItem(LS_END_AT(seriesId), String(e));
             localStorage.setItem(K_CAP(seriesId), String(e));
             localStorage.setItem(K_EXT_TS(seriesId), '0');
+
+            if (hasDB() && seriesId) {
+              try{
+                await db
+                  .from('series')
+                  .update({
+                    vote_round_id: nowIso,
+                    vote_round_start_at: nowIso,
+                    vote_round_end_at: new Date(e).toISOString(),
+                    vote_state: 'active'
+                  })
+                  .eq('id', seriesId);
+              }catch(e){
+                console.warn('series round update failed (new_frame)', e);
+              }
+            }
+
             console.log('[kadry] new_frame → start new round', { nowIso, e });
           } else {
             // 2) Идёт живое голосование. Здесь мы БОЛЬШЕ НЕ ПРОДЛЕВАЕМ таймер.
@@ -1348,6 +1371,22 @@
           localStorage.setItem(LS_END_AT(seriesId), String(e));
           localStorage.setItem(K_CAP(seriesId), String(e));
           localStorage.setItem(K_EXT_TS(seriesId), '0');
+
+          if (hasDB() && seriesId) {
+            try{
+              await db
+                .from('series')
+                .update({
+                  vote_round_id: nowIso,
+                  vote_round_start_at: nowIso,
+                  vote_round_end_at: new Date(e).toISOString(),
+                  vote_state: 'active'
+                })
+                .eq('id', seriesId);
+            }catch(e){
+              console.warn('series round update failed (unfreeze)', e);
+            }
+          }
         }
 
         await refresh();
