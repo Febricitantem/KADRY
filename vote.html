@@ -535,7 +535,7 @@ window.addEventListener('admin:enabled', function () {
     } catch (_) {}
   });
 
-      const K_STATE      = (id)=>`kadry_vote_state_${id}`;
+te_state_${id}`;
       const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
 
       const K_ROUND      = (id)=>`kadry_round_at_${id}`;          // ISO start
@@ -566,6 +566,7 @@ window.addEventListener('admin:enabled', function () {
       let timerId = null;
       let lastBroadcastRaw = null;  // последнее значение kadry_broadcast, чтобы отслеживать изменения
       let currentState = 'active';
+      let autoFinalizeStarted = false;  // чтобы не дёргать финализацию много раз
 
       // --- Упрощённый "анонимный" id для голоса (в рамках браузера) ---
       const ANON_KEY = 'kadry_anon_id';
@@ -704,8 +705,9 @@ window.addEventListener('admin:enabled', function () {
           timerEl.textContent = mm + ':' + ss;
 
           if(remaining <= 0){
-            // Логика блокировки будем делать в draw(), здесь только обновляем картинку
             timerEl.textContent = '00:00';
+            // При первом достижении нуля пытаемся автоматически подвести итог раунда.
+            autoFinalizeRoundOnTimeout();
           }
         }, 1000);
       }
