@@ -31,6 +31,7 @@
   function setHtmlAdmin(on) {
     var root = document.documentElement;
     if (!root || !root.classList) return;
+    console.log('[kadry][admin.js] setHtmlAdmin:', on);
     if (on) root.classList.add('is-admin');
     else root.classList.remove('is-admin');
   }
@@ -151,6 +152,10 @@
       adminState.checkedOnce = true;
       setHtmlAdmin(ok);
       fire(ok ? 'admin:enabled' : 'admin:disabled');
+      console.log('[kadry][admin.js] refreshAdmin result:', {
+        userIsAdmin: ok,
+        checkedOnce: adminState.checkedOnce
+      });
       return ok;
     } catch (e) {
       console.error('refreshAdmin error', e);

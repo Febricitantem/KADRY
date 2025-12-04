@@ -178,48 +178,73 @@
       },
     }
   );
-  
-async function checkSiteOpen() {
+  async function checkSiteOpen() {
+    console.log('[kadry][index] checkSiteOpen() start');
+
+    // 1) Проверяем, видит ли страница админа
+    let admin = false;
+    if (typeof window.isAdmin === 'function') {
+      try {
+        admin = await window.isAdmin();
+      } catch (e) {
+        console.warn('[kadry][index] isAdmin() failed:', e);
+      }
+    } else {
+      console.log('[kadry][index] window.isAdmin is not a function');
+    }
+    console.log('[kadry][index] isAdmin =', admin);
+
+    // 2) Читаем состояние сайта из site_state
     try {
       const { data, error } = await supabase
         .from('site_state')
-        .select('is_open, announcement')
+        .select('id, is_open, announcement')
         .limit(1)
         .single();
+
       if (error) {
-        console.warn('site_state load error', error);
+        console.warn('[kadry][index] site_state load error:', error);
         return;
       }
+
+      console.log('[kadry][index] site_state row =', data);
+
       const open = data && data.is_open !== false;
+      console.log('[kadry][index] computed open =', open);
 
-      // Админ всегда может работать, даже если сайт официально закрыт
-      let adminBypass = false;
-      try {
-        if (!open && typeof window.isAdmin === 'function') {
-          adminBypass = await window.isAdmin();
+      if (!open) {
+        // 3) Если сайт закрыт, но мы админ — не показываем баннер
+        if (admin) {
+          console.log('[kadry][index] site closed in DB, but user is admin -> overlay NOT shown');
+          window.__siteDebug = { role: 'admin', siteState: data };
+          return;
         }
-      } catch (e) {
-        console.warn('isAdmin check in checkSiteOpen failed', e);
-      }
 
-      if (!open && !adminBypass) {
+        // 4) Гость — показываем баннер как раньше
         const overlay = document.getElementById('site-closed-overlay');
         const messageEl = document.getElementById('site-closed-message');
         if (overlay) {
           if (messageEl) {
-            messageEl.textContent = data.announcement || 'Онлайн сейчас закрыт. Попробуйте зайти позже.';
+            messageEl.textContent =
+              data.announcement || 'Онлайн сейчас закрыт. Попробуйте зайти позже.';
           }
           overlay.style.display = 'flex';
           document.body.classList.add('site-closed');
+          console.log('[kadry][index] overlay SHOWN for guest');
+          window.__siteDebug = { role: 'guest', siteState: data };
         }
+      } else {
+        console.log('[kadry][index] site is open, overlay hidden');
       }
     } catch (e) {
-      console.warn('checkSiteOpen failed', e);
+      console.warn('[kadry][index] checkSiteOpen failed:', e);
     }
   }
   checkSiteOpen();
 
-я в БД)
+
+  // --- Helpers ---
+  // Визуальные плейсхолдеры описания (НЕ пишутся в БД)
   const descriptionPlaceholders = [
     'Hello, world!',
     'It works!',
