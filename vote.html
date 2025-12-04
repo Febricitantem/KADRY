@@ -399,7 +399,7 @@
              обычные пользователи их никогда не увидят. -->
         <button id="admin-timer-27" class="btn-primary" type="button" style="display:none;">⏱ 27:00</button>
         <button id="admin-timer-15" class="btn-primary" type="button" style="display:none;">⏱ 15:00</button>
-        <button id="admin-timer-10s" class="btn-primary" type="button" style="display:none;">⏱ 00:10</button>
+        <button id="admin-timer-10" class="btn-primary" type="button" style="display:none;">⏱ 00:10</button>
       </div>
     </div>
 
@@ -466,7 +466,8 @@
         }
       });
 
-  async function checkSiteOpen() {
+  
+async function checkSiteOpen() {
     try {
       const { data, error } = await db
         .from('site_state')
@@ -478,7 +479,18 @@
         return;
       }
       const open = data && data.is_open !== false;
-      if (!open) {
+
+      // Админ может продолжать работу, даже если сайт закрыт для гостей
+      let adminBypass = false;
+      try {
+        if (!open && typeof window.isAdmin === 'function') {
+          adminBypass = await window.isAdmin();
+        }
+      } catch (e) {
+        console.warn('isAdmin check in checkSiteOpen failed', e);
+      }
+
+      if (!open && !adminBypass) {
         const overlay = document.getElementById('site-closed-overlay');
         const messageEl = document.getElementById('site-closed-message');
         if (overlay) {
@@ -495,9 +507,17 @@
   }
   checkSiteOpen();
 
+  // Если админ вошёл уже после того, как сайт был закрыт для гостей,
+  // убираем оверлей при событии admin:enabled.
+  window.addEventListener('admin:enabled', function () {
+    try {
+      const overlay = document.getElementById('site-closed-overlay');
+      if (overlay) overlay.style.display = 'none';
+      document.body.classList.remove('site-closed');
+    } catch (_) {}
+  });
 
-      // --- LocalStorage keys (shared with votes.html / editor.html) ---
-      const K_STATE      = (id)=>`kadry_vote_state_${id}`;
+te_state_${id}`;
       const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
 
       const K_ROUND      = (id)=>`kadry_round_at_${id}`;          // ISO start
@@ -1103,10 +1123,11 @@
         localStorage.setItem(K_END(seriesId), String(e));
         localStorage.setItem(LS_END_AT(seriesId), String(e));
         console.log('[kadry admin] set timer to', mins, 'min →', { now, e });
-      
-      function adminSetTimerSeconds(sec){
-        // Админская настройка таймера ДЛЯ ОТЛАДКИ: установить оставшееся время в секундах.
-        // ВАЖНО: не влияет на правила голосования, только сдвигает локальный дедлайн.
+      }
+
+      function adminSetTimerSeconds(secs){
+        // Админская настройка таймера ДЛЯ ОТЛАДКИ (секунды).
+        // Нужна для ситуаций, когда надо быстро довести голосование до конца.
         if(!seriesId) return;
         const st = getState();
         if(st !== 'active'){
@@ -1114,13 +1135,11 @@
           return;
         }
         const now = Date.now();
-        const e = now + sec * 1000;
+        const e = now + secs * 1000;
         localStorage.setItem(K_END(seriesId), String(e));
         localStorage.setItem(LS_END_AT(seriesId), String(e));
-        console.log('[kadry admin] set timer to', sec, 'sec →', { now, e });
+        console.log('[kadry admin] set timer to', secs, 'sec →', { now, e });
       }
-
-}
 
       function setupControls(){
         const btn = document.getElementById('finalize-inline');
@@ -1134,7 +1153,7 @@
         // Админские кнопки таймера (только для отладки). Видны только администратору.
         const btn27 = document.getElementById('admin-timer-27');
         const btn15 = document.getElementById('admin-timer-15');
-        const btn10s = document.getElementById('admin-timer-10s');
+        const btn10 = document.getElementById('admin-timer-10');
         if(isHtmlAdmin()){
           if(btn27 && !btn27._kadryBound){
             btn27._kadryBound = true;
@@ -1146,15 +1165,15 @@
             btn15.style.display = 'inline-flex';
             btn15.addEventListener('click', function(){ adminSetTimerMinutes(15); });
           }
-          if(btn10s && !btn10s._kadryBound){
-            btn10s._kadryBound = true;
-            btn10s.style.display = 'inline-flex';
-            btn10s.addEventListener('click', function(){ adminSetTimerSeconds(10); });
+          if(btn10 && !btn10._kadryBound){
+            btn10._kadryBound = true;
+            btn10.style.display = 'inline-flex';
+            btn10.addEventListener('click', function(){ adminSetTimerSeconds(10); });
           }
         }else{
           if(btn27){ btn27.style.display = 'none'; }
           if(btn15){ btn15.style.display = 'none'; }
-          if(btn10s){ btn10s.style.display = 'none'; }
+          if(btn10){ btn10.style.display = 'none'; }
         }
 
         updateFinalizeVisibility();
