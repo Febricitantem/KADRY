@@ -535,7 +535,7 @@ window.addEventListener('admin:enabled', function () {
     } catch (_) {}
   });
 
-te_state_${id}`;
+      const K_STATE      = (id)=>`kadry_vote_state_${id}`;
       const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
 
       const K_ROUND      = (id)=>`kadry_round_at_${id}`;          // ISO start

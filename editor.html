@@ -504,7 +504,7 @@
   
 async function checkSiteOpen() {
   try {
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('site_state')
       .select('is_open, announcement')
       .limit(1)
