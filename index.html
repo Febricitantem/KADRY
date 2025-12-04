@@ -178,7 +178,8 @@
       },
     }
   );
-  async function checkSiteOpen() {
+  
+async function checkSiteOpen() {
     try {
       const { data, error } = await supabase
         .from('site_state')
@@ -190,7 +191,18 @@
         return;
       }
       const open = data && data.is_open !== false;
-      if (!open) {
+
+      // Админ всегда может работать, даже если сайт официально закрыт
+      let adminBypass = false;
+      try {
+        if (!open && typeof window.isAdmin === 'function') {
+          adminBypass = await window.isAdmin();
+        }
+      } catch (e) {
+        console.warn('isAdmin check in checkSiteOpen failed', e);
+      }
+
+      if (!open && !adminBypass) {
         const overlay = document.getElementById('site-closed-overlay');
         const messageEl = document.getElementById('site-closed-message');
         if (overlay) {
@@ -207,9 +219,7 @@
   }
   checkSiteOpen();
 
-
-  // --- Helpers ---
-  // Визуальные плейсхолдеры описания (НЕ пишутся в БД)
+я в БД)
   const descriptionPlaceholders = [
     'Hello, world!',
     'It works!',
