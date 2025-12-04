@@ -467,47 +467,65 @@
       });
 
   
+
 async function checkSiteOpen() {
+  try {
+    const { data, error } = await db
+      .from('site_state')
+      .select('is_open, announcement')
+      .limit(1)
+      .single();
+    if (error) {
+      console.warn('site_state load error', error);
+      return;
+    }
+    const open = data && data.is_open !== false;
+
+    // Админ может продолжать работу, даже если сайт закрыт для гостей
+    let adminBypass = false;
     try {
-      const { data, error } = await db
-        .from('site_state')
-        .select('is_open, announcement')
-        .limit(1)
-        .single();
-      if (error) {
-        console.warn('site_state load error', error);
-        return;
-      }
-      const open = data && data.is_open !== false;
-
-      // Админ может продолжать работу, даже если сайт закрыт для гостей
-      let adminBypass = false;
-      try {
-        if (!open && typeof window.isAdmin === 'function') {
-          adminBypass = await window.isAdmin();
-        }
-      } catch (e) {
-        console.warn('isAdmin check in checkSiteOpen failed', e);
-      }
-
-      if (!open && !adminBypass) {
-        const overlay = document.getElementById('site-closed-overlay');
-        const messageEl = document.getElementById('site-closed-message');
-        if (overlay) {
-          if (messageEl) {
-            messageEl.textContent = data.announcement || 'Онлайн сейчас закрыт. Попробуйте зайти позже.';
-          }
-          overlay.style.display = 'flex';
-          document.body.classList.add('site-closed');
-        }
+      if (!open && typeof window.isAdmin === 'function') {
+        adminBypass = await window.isAdmin();
       }
     } catch (e) {
-      console.warn('checkSiteOpen failed', e);
+      console.warn('isAdmin check in checkSiteOpen failed', e);
     }
-  }
-  checkSiteOpen();
 
-  // Если админ вошёл уже после того, как сайт был закрыт для гостей,
+    const overlay = document.getElementById('site-closed-overlay');
+    const messageEl = document.getElementById('site-closed-message');
+
+    if (!open && !adminBypass) {
+      if (overlay) {
+        if (messageEl) {
+          messageEl.textContent =
+            (data && data.announcement) ||
+            'Онлайн сейчас закрыт. Попробуйте зайти позже.';
+        }
+        overlay.style.display = 'flex';
+        document.body.classList.add('site-closed');
+      }
+    } else {
+      // Сайт открыт или админ вошёл — убираем блокировку на всякий случай
+      if (overlay) {
+        overlay.style.display = 'none';
+        document.body.classList.remove('site-closed');
+      }
+    }
+  } catch (e) {
+    console.warn('checkSiteOpen failed', e);
+  }
+}
+checkSiteOpen();
+
+// Если админ залогинился уже после загрузки страницы — снимаем блокировку
+window.addEventListener('admin:enabled', function () {
+  var overlay = document.getElementById('site-closed-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+    document.body.classList.remove('site-closed');
+  }
+});
+// Если админ вошёл уже после того, как сайт был закрыт для гостей,
   // убираем оверлей при событии admin:enabled.
   window.addEventListener('admin:enabled', function () {
     try {
