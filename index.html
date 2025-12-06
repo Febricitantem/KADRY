@@ -61,8 +61,45 @@
       transform: translateY(18%);
     }
 
-    .wrap{max-width:1200px;margin:22px auto;padding:0 18px}
-    h1{font-size:36px;font-weight:800;margin:8px 0 18px}
+   .wrap{
+  max-width:1200px;
+  margin:22px auto;
+  padding:0 18px;
+}
+
+/* строка "Каталог серий" + кнопка */
+.catalog-header {
+  display: grid;
+  grid-template-columns: 320px 1fr 240px; /* как series-row */
+  align-items: center;
+  column-gap: 24px;
+  margin: 8px 0 18px;
+  padding: 0 16px; /* добавляем такие же внутренние поля как у карточек */
+}
+
+.catalog-header h1 {
+  grid-column: 1 / span 2;
+  margin: 0;
+  font-size: 36px;
+  font-weight: 800;
+}
+
+/* Кнопка */
+#open-create {
+  grid-column: 3;
+  justify-self: center;
+
+  /* Размер как у маленьких кнопок, но чуть выше */
+  padding: 10px 20px;
+  font-size: 15px;
+  border-radius: 12px;
+
+  /* Чтобы выглядела так же аккуратно, как в карточках */
+  min-width: 160px;
+  text-align: center;
+}
+
+
 
     .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer}
     .btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -177,9 +214,11 @@
     <a class="hslot h4" href="#">Профиль</a>
   </header>
 
-  <div class="wrap">
+ <div class="wrap">
+  <div class="catalog-header">
     <h1>Каталог серий</h1>
     <button id="open-create" class="btn primary">Создать серию</button>
+  </div>
 
     <div id="series-list" style="margin-top:14px">Загрузка…</div>
 
