@@ -1166,19 +1166,32 @@ drawSmoothFill(p2, pathPoints, t);
         }
         return;
       }
-      if (!drawing) return;
-pathPoints.push(lastPos);
+          if (!drawing) return;
+      pathPoints.push(lastPos);
 
-// 🔧 ВАЖНО: сначала рисуем штрих, потом — кружок курсора,
-// чтобы линия его не "затирала".
-preview.ctx.clearRect(0, 0, W, H);
+      // Ластик: сразу стираем на реальном слое,
+      // а на preview показываем только круг курсора.
+      if (tool() === 'eraser') {
+        // применяем ластик «вживую»
+        redraw(l.ctx, l, pathPoints);
 
-if (hudEnabled) {
-  // рисуем временную линию
-  redraw(preview.ctx, l, pathPoints);
-  // и поверх — круг курсора
-  drawCursorCircle();
-}
+        // preview — только HUD без чёрного хвоста
+        preview.ctx.clearRect(0, 0, W, H);
+        if (hudEnabled) {
+          drawCursorCircle();
+        }
+        return;
+      }
+
+      // Для остальных инструментов: линия на preview, слой обновляется при отпускании.
+      preview.ctx.clearRect(0, 0, W, H);
+      if (hudEnabled) {
+        // рисуем временную линию
+        redraw(preview.ctx, l, pathPoints);
+        // и поверх — круг курсора
+        drawCursorCircle();
+      }
+
 
     }
 
