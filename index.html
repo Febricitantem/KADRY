@@ -61,7 +61,6 @@
       transform: translateY(18%);
     }
 
-    /* Дальше — стили каталога (как были) */
     .wrap{max-width:1200px;margin:22px auto;padding:0 18px}
     h1{font-size:36px;font-weight:800;margin:8px 0 18px}
 
@@ -88,16 +87,15 @@
 
     /* col2: описание */
     .series-desc{grid-column:2;grid-row:1;color:#475569;font-size:14px;text-align:center;display:flex;align-items:center;justify-content:center;height:124px;overflow:hidden;position:relative}
-    /* Медленный возврат: появление 1.8s + подъём 1.4s */
     .series-desc__inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease, transform 1.4s ease}
-    /* Быстрое скрытие при развороте карточек */
     .series-row.expanded .series-desc__inner{opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s ease, transform .6s ease}
 
     /* col3: правый столбец — единая ось: заголовок + две равные кнопки */
     .aside{grid-column:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;width:240px;height:124px}
     .series-title{font-size:20px;font-weight:800;margin:0 0 8px;text-align:center}
     .series-actions{display:flex;flex-direction:column;gap:10px;margin-top:6px;align-items:center}
-  
+
+    /* Оверлей закрытого онлайна */
     body.site-closed {
       overflow: hidden;
     }
@@ -132,7 +130,27 @@
       font-size: 14px;
       color: #cbd5f5;
     }
-</style>
+
+    /* Пагинация */
+    .pagination {
+  margin: 28px auto 40px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center; /* центрируем */
+  font-size: 15px;
+  color: #4b5563;
+}
+.pagination span {
+  min-width: 140px;
+  text-align: center;
+}
+
+    .pagination span {
+      min-width: 140px;
+    }
+  </style>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
 </head>
@@ -162,8 +180,18 @@
   <div class="wrap">
     <h1>Каталог серий</h1>
     <button id="open-create" class="btn primary">Создать серию</button>
+
     <div id="series-list" style="margin-top:14px">Загрузка…</div>
+
+    <!-- 🔹 НОВОЕ: блок пагинации -->
+   <div style="width:100%; display:flex; justify-content:center;">
+  <div id="pagination" class="pagination" style="display:none">
+    <button class="btn" type="button" data-role="prev">← Назад</button>
+    <button class="btn" type="button" data-role="next">Вперёд →</button>
+    <span data-role="label"></span>
   </div>
+</div>
+
 
 <script>
   // --- Supabase init ---
@@ -178,10 +206,9 @@
       },
     }
   );
-  async function checkSiteOpen() {
-    console.log('[kadry][index] checkSiteOpen() start');
 
-    // 1) Проверяем, видит ли страница админа
+  // --- Проверка, открыт ли онлайн ---
+  async function checkSiteOpen() {
     let admin = false;
     if (typeof window.isAdmin === 'function') {
       try {
@@ -189,12 +216,8 @@
       } catch (e) {
         console.warn('[kadry][index] isAdmin() failed:', e);
       }
-    } else {
-      console.log('[kadry][index] window.isAdmin is not a function');
     }
-    console.log('[kadry][index] isAdmin =', admin);
 
-    // 2) Читаем состояние сайта из site_state
     try {
       const { data, error } = await supabase
         .from('site_state')
@@ -207,20 +230,9 @@
         return;
       }
 
-      console.log('[kadry][index] site_state row =', data);
-
       const open = data && data.is_open !== false;
-      console.log('[kadry][index] computed open =', open);
 
-      if (!open) {
-        // 3) Если сайт закрыт, но мы админ — не показываем баннер
-        if (admin) {
-          console.log('[kadry][index] site closed in DB, but user is admin -> overlay NOT shown');
-          window.__siteDebug = { role: 'admin', siteState: data };
-          return;
-        }
-
-        // 4) Гость — показываем баннер как раньше
+      if (!open && !admin) {
         const overlay = document.getElementById('site-closed-overlay');
         const messageEl = document.getElementById('site-closed-message');
         if (overlay) {
@@ -230,11 +242,7 @@
           }
           overlay.style.display = 'flex';
           document.body.classList.add('site-closed');
-          console.log('[kadry][index] overlay SHOWN for guest');
-          window.__siteDebug = { role: 'guest', siteState: data };
         }
-      } else {
-        console.log('[kadry][index] site is open, overlay hidden');
       }
     } catch (e) {
       console.warn('[kadry][index] checkSiteOpen failed:', e);
@@ -242,9 +250,7 @@
   }
   checkSiteOpen();
 
-
   // --- Helpers ---
-  // Визуальные плейсхолдеры описания (НЕ пишутся в БД)
   const descriptionPlaceholders = [
     'Hello, world!',
     'It works!',
@@ -253,6 +259,7 @@
     'Вы кадр №…',
     'Если вы это читаете — значит всё работает.'
   ];
+
   const signedCache = new Map();
   async function getDisplayUrl(storedUrl){
     try{
@@ -286,212 +293,298 @@
     }
   })();
 
-  // --- Main list loader ---
-  async function loadSeries(){
-    const host=document.getElementById('series-list');
-    host.textContent='Загрузка…';
-    const { data: series, error } = await supabase.from('series').select('*').order('created_at',{ascending:false});
-    if(error){ console.error(error); host.textContent='Ошибка загрузки'; return; }
-    host.textContent='';
+  // --- ПАГИНАЦИЯ ---
+  const PAGE_SIZE = 10;
+  let currentPage = 1;
+  let totalPages = 1;
 
-    for(const s of (series||[])){
-      // Берём кадры: сначала committed, если их нет — кадры in_vote
-      const { data: allFrames } = await supabase
-        .from('frames')
-        .select('id,image_url,order_index,committed,in_vote')
-        .eq('series_id', s.id)
-        .or('committed.eq.true,in_vote.eq.true')
-        .order('order_index',{ascending:true,nullsFirst:false})
-        .order('id',{ascending:true});
-      const committed = (allFrames||[]).filter(f=>f.committed);
-      const inVote    = (allFrames||[]).filter(f=>!f.committed && f.in_vote);
-      const previewFrames = committed.length ? committed : inVote;
+  function setupPagination() {
+    const pag = document.getElementById('pagination');
+    if (!pag) return;
+    const prevBtn = pag.querySelector('[data-role="prev"]');
+    const nextBtn = pag.querySelector('[data-role="next"]');
 
-      // row container
-      const row=document.createElement('div'); row.className='series-row';
-
-      // col1: preview/stack
-      const preview=document.createElement('div'); preview.className='preview';
-      preview.setAttribute('role','link');
-      preview.setAttribute('aria-label', `Открыть серию ${s.title}`);
-      preview.tabIndex = 0;
-      const goSeries = ()=>{ location.href = `series.html?id=${s.id}`; };
-      const keyGo = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); goSeries(); } };
-      preview.addEventListener('click', goSeries);
-      preview.addEventListener('keydown', keyGo);
-
-      const stack=document.createElement('div'); stack.className='stack'; preview.appendChild(stack);
-      let i=0;
-      const stackFrames=[];
-      if(previewFrames.length>0) stackFrames.push(previewFrames[0]);
-      if(previewFrames.length>1) stackFrames.push(previewFrames[Math.min(1,previewFrames.length-1)]);
-      if(previewFrames.length>3){
-        stackFrames.push({ id:'ellipsis', image_url: previewFrames[2]?.image_url || '' });
-        stackFrames.push(previewFrames[previewFrames.length-2]);
-        stackFrames.push(previewFrames[previewFrames.length-1]);
-      } else if(previewFrames.length>2) {
-        stackFrames.push(previewFrames[previewFrames.length-1]);
-      }
-
-      for(const p of stackFrames){
-        const t=document.createElement('div'); t.className='tile'; t.style.setProperty('--i', i++);
-        const img=document.createElement('img'); img.loading='lazy';
-        if(p.image_url) getDisplayUrl(p.image_url).then(u=>{ img.src=u; });
-        t.appendChild(img);
-        if(p.id==='ellipsis'){ t.classList.add('ellipsis'); }
-        stack.appendChild(t);
-      }
-
-      // initial compact state (no animation)
-      (function initCompact(){
-        const tiles=Array.from(stack.querySelectorAll('.tile'));
-        const shift=14;
-        tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
-        requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
-      })();
-
-      // col2: description
-      const desc=document.createElement('div');
-      desc.className='series-desc';
-      const descText = (s.description && s.description.trim())
-        ? (s.description||'')
-        : descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
-      const safe = descText.replace(/[<>]/g, m=>({"<":"&lt;",">":"&gt;"}[m]));
-      const descHtml = `<div class="series-desc__inner">${safe}</div>`;
-      desc.innerHTML = descHtml;
-
-      // col3: aside
-      const aside=document.createElement('div'); aside.className='aside';
-      const h=document.createElement('div'); h.className='series-title'; h.textContent=s.title; aside.appendChild(h);
-      const actions=document.createElement('div'); actions.className='series-actions';
-      const btnVote=document.createElement('button'); btnVote.className='btn vote'; btnVote.textContent='Голосование'; btnVote.onclick=()=>{ location.href=`vote.html?series=${s.id}`; };
-      const btnOpen=document.createElement('button'); btnOpen.className='btn primary open'; btnOpen.textContent='Открыть серию'; btnOpen.onclick=()=>{ location.href=`series.html?id=${s.id}`; };
-      actions.appendChild(btnVote); actions.appendChild(btnOpen); aside.appendChild(actions);
-
-      // --- Hover behaviour (запуск только при наведении на превью) ---
-      let hoverTimer=null; let expanded=false;
-
-      function expand(){
-        if(expanded) return; expanded=true;
-        const tiles=Array.from(stack.querySelectorAll('.tile'));
-        const shift=14;
-        tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
-
-        const rowRect   = row.getBoundingClientRect();
-        const asideRect = aside.getBoundingClientRect();
-        const gap = 24;
-        const leftOffset = stack.offsetLeft;
-        const topOffset  = stack.offsetTop;
-        const targetWidth = Math.max(0, (asideRect.left - rowRect.left) - (preview.offsetLeft + leftOffset) - gap);
-
-        stack.dataset.prevPos = stack.style.position;
-        stack.dataset.prevW   = stack.style.width;
-        stack.dataset.prevL   = stack.style.left;
-        stack.dataset.prevT   = stack.style.top;
-        const prevOv = preview.style.overflow; preview.dataset.prevOv = prevOv; preview.style.overflow = 'visible';
-        stack.style.position = 'absolute';
-        stack.style.left = leftOffset + 'px';
-        stack.style.top  = topOffset  + 'px';
-        stack.style.width = targetWidth + 'px';
-        stack.style.height = stack.offsetHeight + 'px';
-
-        row.classList.add('expanded'); stack.classList.add('expanded');
-        void stack.offsetWidth;
-
-        tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; });
-        const n=tiles.length; if(n===0) return;
-        const tileW=tiles[0].getBoundingClientRect().width;
-        const avail=Math.max(0, targetWidth - tileW);
-        const overlap=8;
-        const baseSlots = 5;
-        const step5 = (baseSlots>1) ? Math.max(0,(avail - overlap*(baseSlots-1))/(baseSlots-1)) : 0;
-        const step = step5;
-        tiles.forEach((t,idx)=>{ t.style.left = (idx*step + idx*overlap) + 'px'; });
-        tiles.forEach(t=>{
-          if(!t.dataset.clickable){
-            t.addEventListener('click', goSeries);
-            t.addEventListener('keydown', keyGo);
-            t.dataset.clickable='1';
-          }
-          t.tabIndex = 0;
-          t.style.cursor='pointer';
-        });
-      }
-
-      function collapse(){
-        if(!expanded) return; expanded=false;
-        const tiles=Array.from(stack.querySelectorAll('.tile'));
-        row.classList.remove('expanded'); stack.classList.remove('expanded');
-        const shift=14;
-        tiles.forEach((t,idx)=>{ t.style.left=(idx*shift)+'px'; t.tabIndex=-1; });
-        const finish=()=>{
-          tiles.forEach(t=> t.removeEventListener('transitionend', finish));
-          tiles.forEach(t=>{ t.style.transition='none'; });
-          stack.style.position = stack.dataset.prevPos || '';
-          stack.style.width    = stack.dataset.prevW   || '';
-          stack.style.left     = stack.dataset.prevL   || '';
-          stack.style.top      = stack.dataset.prevT   || '';
-          preview.style.overflow = preview.dataset.prevOv || 'hidden';
-          requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
-        };
-        tiles.forEach(t=> t.addEventListener('transitionend', finish, { once:true }));
-      }
-
-      function isInsideActiveArea(evt){
-        const rowRect = row.getBoundingClientRect();
-        const asideRect = aside.getBoundingClientRect();
-        const x = evt.clientX, y = evt.clientY;
-        const left = rowRect.left + 8;
-        const right = asideRect.left - 12;
-        const top = rowRect.top + 6, bottom = rowRect.bottom - 6;
-        return x>=left && x<=right && y>=top && y<=bottom;
-      }
-      function isInsidePreview(evt){
-        const r = preview.getBoundingClientRect();
-        const x = evt.clientX, y = evt.clientY;
-        return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
-      }
-
-      row.addEventListener('mouseenter',(e)=>{ if(isInsidePreview(e)) { expand(); } });
-      row.addEventListener('mousemove',(e)=>{
-        const inActive = isInsideActiveArea(e);
-        if(expanded){ row.style.cursor = inActive ? 'pointer' : 'default'; }
-        else { row.style.cursor = 'default'; }
-        if(inActive){
-          if(isInsidePreview(e)){
-            if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; }
-            if(!expanded) expand();
-          }else{ if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; } }
-        }else{ if(!hoverTimer){ hoverTimer=setTimeout(collapse, 120); } }
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          loadSeries(currentPage - 1);
+        }
       });
-      row.addEventListener('mouseleave',()=>{ if(hoverTimer){ clearTimeout(hoverTimer);} collapse(); });
-
-      row.addEventListener('click',(e)=>{
-        if(!expanded) return;
-        const rowRect = row.getBoundingClientRect();
-        const asideRect = aside.getBoundingClientRect();
-        const x=e.clientX, y=e.clientY;
-        const inActive = x>=rowRect.left+8 && x<=asideRect.left-12 && y>=rowRect.top+6 && y<=rowRect.bottom-6;
-        if(inActive) { e.preventDefault(); goSeries(); }
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          loadSeries(currentPage + 1);
+        }
       });
-
-      requestAnimationFrame(()=>{
-        const openW = btnOpen.offsetWidth;
-        const voteW = btnVote.offsetWidth;
-        const target = Math.max(openW, voteW);
-        btnOpen.style.width = target+'px';
-        btnVote.style.width = target+'px';
-        h.style.width = target+'px';
-      });
-
-      row.appendChild(preview);
-      row.appendChild(desc);
-      row.appendChild(aside);
-      host.appendChild(row);
     }
   }
 
-  loadSeries();
+  function updatePaginationUI() {
+    const pag = document.getElementById('pagination');
+    if (!pag) return;
+
+    const label = pag.querySelector('[data-role="label"]');
+    const prevBtn = pag.querySelector('[data-role="prev"]');
+    const nextBtn = pag.querySelector('[data-role="next"]');
+
+    if (totalPages <= 1) {
+      pag.style.display = 'none';
+      return;
+    }
+
+    pag.style.display = 'flex';
+
+    if (label) {
+      label.textContent = `Страница ${currentPage} из ${totalPages}`;
+    }
+    if (prevBtn) {
+      prevBtn.disabled = currentPage <= 1;
+    }
+    if (nextBtn) {
+      nextBtn.disabled = currentPage >= totalPages;
+    }
+  }
+
+  // --- Рендер одной серии (вынесено в функцию) ---
+  async function renderSeriesRow(s, host) {
+    // Берём кадры: сначала committed, если их нет — кадры in_vote
+    const { data: allFrames } = await supabase
+      .from('frames')
+      .select('id,image_url,order_index,committed,in_vote')
+      .eq('series_id', s.id)
+      .or('committed.eq.true,in_vote.eq.true')
+      .order('order_index',{ascending:true,nullsFirst:false})
+      .order('id',{ascending:true});
+
+    const committed = (allFrames||[]).filter(f=>f.committed);
+    const inVote    = (allFrames||[]).filter(f=>!f.committed && f.in_vote);
+    const previewFrames = committed.length ? committed : inVote;
+
+    const row=document.createElement('div'); row.className='series-row';
+
+    // col1: preview/stack
+    const preview=document.createElement('div'); preview.className='preview';
+    preview.setAttribute('role','link');
+    preview.setAttribute('aria-label', `Открыть серию ${s.title}`);
+    preview.tabIndex = 0;
+    const goSeries = ()=>{ location.href = `series.html?id=${s.id}`; };
+    const keyGo = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); goSeries(); } };
+    preview.addEventListener('click', goSeries);
+    preview.addEventListener('keydown', keyGo);
+
+    const stack=document.createElement('div'); stack.className='stack'; preview.appendChild(stack);
+    let i=0;
+    const stackFrames=[];
+    if(previewFrames.length>0) stackFrames.push(previewFrames[0]);
+    if(previewFrames.length>1) stackFrames.push(previewFrames[Math.min(1,previewFrames.length-1)]);
+    if(previewFrames.length>3){
+      stackFrames.push({ id:'ellipsis', image_url: previewFrames[2]?.image_url || '' });
+      stackFrames.push(previewFrames[previewFrames.length-2]);
+      stackFrames.push(previewFrames[previewFrames.length-1]);
+    } else if(previewFrames.length>2) {
+      stackFrames.push(previewFrames[previewFrames.length-1]);
+    }
+
+    for(const p of stackFrames){
+      const t=document.createElement('div'); t.className='tile'; t.style.setProperty('--i', i++);
+      const img=document.createElement('img'); img.loading='lazy';
+      if(p.image_url) getDisplayUrl(p.image_url).then(u=>{ img.src=u; });
+      t.appendChild(img);
+      if(p.id==='ellipsis'){ t.classList.add('ellipsis'); }
+      stack.appendChild(t);
+    }
+
+    (function initCompact(){
+      const tiles=Array.from(stack.querySelectorAll('.tile'));
+      const shift=14;
+      tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
+      requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
+    })();
+
+    // col2: description
+    const desc=document.createElement('div');
+    desc.className='series-desc';
+    const descText = (s.description && s.description.trim())
+      ? (s.description||'')
+      : descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
+    const safe = descText.replace(/[<>]/g, m=>({"<":"&lt;",">":"&gt;"}[m]));
+    const descHtml = `<div class="series-desc__inner">${safe}</div>`;
+    desc.innerHTML = descHtml;
+
+    // col3: aside
+    const aside=document.createElement('div'); aside.className='aside';
+    const h=document.createElement('div'); h.className='series-title'; h.textContent=s.title; aside.appendChild(h);
+    const actions=document.createElement('div'); actions.className='series-actions';
+    const btnVote=document.createElement('button'); btnVote.className='btn vote'; btnVote.textContent='Голосование'; btnVote.onclick=()=>{ location.href=`vote.html?series=${s.id}`; };
+    const btnOpen=document.createElement('button'); btnOpen.className='btn primary open'; btnOpen.textContent='Открыть серию'; btnOpen.onclick=()=>{ location.href=`series.html?id=${s.id}`; };
+    actions.appendChild(btnVote); actions.appendChild(btnOpen); aside.appendChild(actions);
+
+    // --- Hover behaviour ---
+    let hoverTimer=null; let expanded=false;
+
+    function expand(){
+      if(expanded) return; expanded=true;
+      const tiles=Array.from(stack.querySelectorAll('.tile'));
+      const shift=14;
+      tiles.forEach((t,idx)=>{ t.style.transition='none'; t.style.left=(idx*shift)+'px'; });
+
+      const rowRect   = row.getBoundingClientRect();
+      const asideRect = aside.getBoundingClientRect();
+      const gap = 24;
+      const leftOffset = stack.offsetLeft;
+      const topOffset  = stack.offsetTop;
+      const targetWidth = Math.max(0, (asideRect.left - rowRect.left) - (preview.offsetLeft + leftOffset) - gap);
+
+      stack.dataset.prevPos = stack.style.position;
+      stack.dataset.prevW   = stack.style.width;
+      stack.dataset.prevL   = stack.style.left;
+      stack.dataset.prevT   = stack.style.top;
+      const prevOv = preview.style.overflow; preview.dataset.prevOv = prevOv; preview.style.overflow = 'visible';
+      stack.style.position = 'absolute';
+      stack.style.left = leftOffset + 'px';
+      stack.style.top  = topOffset  + 'px';
+      stack.style.width = targetWidth + 'px';
+      stack.style.height = stack.offsetHeight + 'px';
+
+      row.classList.add('expanded'); stack.classList.add('expanded');
+      void stack.offsetWidth;
+
+      tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; });
+      const n=tiles.length; if(n===0) return;
+      const tileW=tiles[0].getBoundingClientRect().width;
+      const avail=Math.max(0, targetWidth - tileW);
+      const overlap=8;
+      const baseSlots = 5;
+      const step5 = (baseSlots>1) ? Math.max(0,(avail - overlap*(baseSlots-1))/(baseSlots-1)) : 0;
+      const step = step5;
+      tiles.forEach((t,idx)=>{ t.style.left = (idx*step + idx*overlap) + 'px'; });
+      tiles.forEach(t=>{
+        if(!t.dataset.clickable){
+          t.addEventListener('click', goSeries);
+          t.addEventListener('keydown', keyGo);
+          t.dataset.clickable='1';
+        }
+        t.tabIndex = 0;
+        t.style.cursor='pointer';
+      });
+    }
+
+    function collapse(){
+      if(!expanded) return; expanded=false;
+      const tiles=Array.from(stack.querySelectorAll('.tile'));
+      row.classList.remove('expanded'); stack.classList.remove('expanded');
+      const shift=14;
+      tiles.forEach((t,idx)=>{ t.style.left=(idx*shift)+'px'; t.tabIndex=-1; });
+      const finish=()=>{
+        tiles.forEach(t=> t.removeEventListener('transitionend', finish));
+        tiles.forEach(t=>{ t.style.transition='none'; });
+        stack.style.position = stack.dataset.prevPos || '';
+        stack.style.width    = stack.dataset.prevW   || '';
+        stack.style.left     = stack.dataset.prevL   || '';
+        stack.style.top      = stack.dataset.prevT   || '';
+        preview.style.overflow = preview.dataset.prevOv || 'hidden';
+        requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
+      };
+      tiles.forEach(t=> t.addEventListener('transitionend', finish, { once:true }));
+    }
+
+    function isInsideActiveArea(evt){
+      const rowRect = row.getBoundingClientRect();
+      const asideRect = aside.getBoundingClientRect();
+      const x = evt.clientX, y = evt.clientY;
+      const left = rowRect.left + 8;
+      const right = asideRect.left - 12;
+      const top = rowRect.top + 6, bottom = rowRect.bottom - 6;
+      return x>=left && x<=right && y>=top && y<=bottom;
+    }
+    function isInsidePreview(evt){
+      const r = preview.getBoundingClientRect();
+      const x = evt.clientX, y = evt.clientY;
+      return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+    }
+
+    row.addEventListener('mouseenter',(e)=>{ if(isInsidePreview(e)) { expand(); } });
+    row.addEventListener('mousemove',(e)=>{
+      const inActive = isInsideActiveArea(e);
+      if(expanded){ row.style.cursor = inActive ? 'pointer' : 'default'; }
+      else { row.style.cursor = 'default'; }
+      if(inActive){
+        if(isInsidePreview(e)){
+          if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; }
+          if(!expanded) expand();
+        }else{ if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer=null; } }
+      }else{ if(!hoverTimer){ hoverTimer=setTimeout(collapse, 120); } }
+    });
+    row.addEventListener('mouseleave',()=>{ if(hoverTimer){ clearTimeout(hoverTimer);} collapse(); });
+
+    row.addEventListener('click',(e)=>{
+      if(!expanded) return;
+      const rowRect = row.getBoundingClientRect();
+      const asideRect = aside.getBoundingClientRect();
+      const x=e.clientX, y=e.clientY;
+      const inActive = x>=rowRect.left+8 && x<=asideRect.left-12 && y>=rowRect.top+6 && y<=rowRect.bottom-6;
+      if(inActive) { e.preventDefault(); goSeries(); }
+    });
+
+    requestAnimationFrame(()=>{
+      const openW = btnOpen.offsetWidth;
+      const voteW = btnVote.offsetWidth;
+      const target = Math.max(openW, voteW);
+      btnOpen.style.width = target+'px';
+      btnVote.style.width = target+'px';
+      h.style.width = target+'px';
+    });
+
+    row.appendChild(preview);
+    row.appendChild(desc);
+    row.appendChild(aside);
+    host.appendChild(row);
+  }
+
+  // --- Main list loader с пагинацией ---
+  async function loadSeries(page = 1){
+    const host=document.getElementById('series-list');
+    const pag = document.getElementById('pagination');
+
+    currentPage = page;
+    host.textContent='Загрузка…';
+
+    if (pag) {
+      pag.style.visibility = 'hidden';
+    }
+
+    const from = (page - 1) * PAGE_SIZE;
+    const to   = from + PAGE_SIZE - 1;
+
+    const { data: series, error, count } = await supabase
+      .from('series')
+      .select('*', { count: 'exact' })
+      .order('created_at',{ascending:false})
+      .range(from, to);
+
+    if(error){
+      console.error(error);
+      host.textContent='Ошибка загрузки';
+      return;
+    }
+
+    totalPages = count ? Math.max(1, Math.ceil(count / PAGE_SIZE)) : 1;
+
+    host.textContent='';
+    for (const s of (series || [])) {
+      await renderSeriesRow(s, host);
+    }
+
+    updatePaginationUI();
+    if (pag) {
+      pag.style.visibility = 'visible';
+    }
+  }
+
+  // Старт
+  setupPagination();
+  loadSeries(1);
 </script>
 </body>
 </html>

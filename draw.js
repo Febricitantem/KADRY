@@ -77,6 +77,10 @@
     var alphaInp = document.getElementById('brushAlpha');
     var smoothInp = document.getElementById('brushSmooth');
     var toolSel = document.getElementById('toolSel');
+      // подписи с процентами под ползунками
+    var sizeValEl = document.getElementById('brushSizeValue');
+    var alphaValEl = document.getElementById('brushAlphaValue');
+    var smoothValEl = document.getElementById('brushSmoothValue');
     var opacityInp = document.getElementById('layerOpacity');
     var addBtn = document.getElementById('addLayerBtn');
     var delBtn = document.getElementById('delLayerBtn');
@@ -99,6 +103,14 @@
       document.querySelectorAll('.color-history-swatch')
     );
     var colorPreviewEl = document.getElementById('colorPreview');
+    var smoothValueLabel = document.getElementById('brushSmoothValue');
+
+function updateSmoothLabel() {
+  if (!smoothInp || !smoothValueLabel) return;
+  var pct = clamp(Number(smoothInp.value) || 0, 0, 100);
+  smoothValueLabel.textContent = pct + '%';
+}
+
 
     var currentHSV = { h: 0, s: 1, v: 1 };
     var lastStrokeColorHex = null;
@@ -443,6 +455,8 @@
     var drawing = false;
     var selecting = false;
     var dragging = false;
+    var brushCursorVisible = true; // флаг, можно ли рисовать круг-курсор кисти
+
 
     function applyLockState() {
       var locked = isTimeExpired();
@@ -777,7 +791,38 @@
       // 0 = полностью прозрачная кисть, 1 = максимально плотная
       return clamp(v, 0, 1);
     }
-    function smooth() { return clamp(smoothInp ? Number(smoothInp.value) || 0 : 0, 0, 1); }
+        function smooth() {
+      if (!smoothInp) return 0;
+      var v = Number(smoothInp.value);
+      if (!isFinite(v) || isNaN(v)) v = 0;
+
+      // v = 0..100 → 0..1 → чуть усиливаем эффект до 0..1.2
+      var t = clamp(v / 100, 0, 1);
+      return t * 1.2;
+    }
+        function updateBrushHUD() {
+      // Толщина: процент относительно максимума слайдера
+      if (sizeValEl && sizeInp) {
+        var maxSize = Number(sizeInp.max) || 60;
+        var curSize = Number(sizeInp.value) || 1;
+        var pctSize = Math.round(curSize / maxSize * 100);
+        sizeValEl.textContent = pctSize + '%';
+      }
+
+      // Прозрачность: 0..1 → 0..100%
+      if (alphaValEl && alphaInp) {
+        var a = Number(alphaInp.value);
+        if (!isFinite(a) || isNaN(a)) a = 1;
+        var pctAlpha = Math.round(a * 100);
+        alphaValEl.textContent = pctAlpha + '%';
+      }
+
+      // Сглаживание: берём как есть из ползунка (0..100)
+      if (smoothValEl && smoothInp) {
+        var s = Number(smoothInp.value) || 0;
+        smoothValEl.textContent = Math.round(s) + '%';
+      }
+    }
 
     function updateToolCursor() {
       if (!wrap) return;
@@ -867,12 +912,29 @@
     }
 
     function redraw(ctx, l, pts) {
-      if (pts.length < 2) return;
-      ctx.save(); setupStroke(ctx, l);
-      var t = smooth();
-      if (tool() === 'fill') drawSmoothFill(ctx, pts, t); else drawSmoothPath(ctx, pts, t);
-      ctx.restore();
-    }
+  if (pts.length < 2) return;
+  ctx.save(); setupStroke(ctx, l);
+
+  // базовое значение из слайдера 0..1
+  var s = smooth();
+
+  // Преобразуем в “ощутимое” сглаживание:
+  // 0   → 0 (выкл)
+  // 0.5 → ~0.575
+  // 1   → 1 (максимально гладко)
+  var t = 0;
+  if (s > 0) {
+    t = 0.15 + s * 0.85; // минимум 0.15, максимум 1
+  }
+
+  if (tool() === 'fill') {
+    drawSmoothFill(ctx, pts, t);
+  } else {
+    drawSmoothPath(ctx, pts, t);
+  }
+  ctx.restore();
+}
+
 
     // ---- координаты и HUD
     function localXY(e) {
@@ -889,7 +951,13 @@
 
     function drawCursorCircle() {
       if (!hudEnabled || exporting || isTimeExpired()) return;
+
+      // 🔥 если активна пипетка или мы явно скрыли курсор — ничего не рисуем
+      if (window.__kadryEyedropperOn) return;
+      if (!brushCursorVisible) return;
+
       if (tool() !== 'brush' && tool() !== 'eraser') return;
+
       var p = preview.ctx;
       var rr = Math.max(2, size() / 2);
       p.save();
@@ -901,6 +969,7 @@
       p.stroke();
       p.restore();
     }
+
 
     function redrawPreview() {
       preview.ctx.clearRect(0, 0, W, H);
@@ -1089,15 +1158,28 @@
         if (hudEnabled) {
           var p2 = preview.ctx;
           p2.save(); p2.globalAlpha = 0.25; p2.fillStyle = '#3b82f6';
-          drawSmoothFill(p2, pathPoints, smooth());
+          var s = smooth();
+var t = s > 0 ? 0.15 + s * 0.85 : 0;
+drawSmoothFill(p2, pathPoints, t);
+
           p2.restore();
         }
         return;
       }
       if (!drawing) return;
-      pathPoints.push(lastPos);
-      redrawPreview();
-      if (hudEnabled) redraw(preview.ctx, l, pathPoints);
+pathPoints.push(lastPos);
+
+// 🔧 ВАЖНО: сначала рисуем штрих, потом — кружок курсора,
+// чтобы линия его не "затирала".
+preview.ctx.clearRect(0, 0, W, H);
+
+if (hudEnabled) {
+  // рисуем временную линию
+  redraw(preview.ctx, l, pathPoints);
+  // и поверх — круг курсора
+  drawCursorCircle();
+}
+
     }
 
     function endDraw(e) {
@@ -1177,6 +1259,12 @@
 
     // ---- pointer события
     wrap.addEventListener('pointerdown', function (e) {
+      // ❌ Блокируем long-press на стилусе, который эмулирует правую кнопку
+if (e.pointerType === 'pen' && e.button === 2) {
+  e.preventDefault();
+  return;
+}
+
       if (isTimeExpired()) return;
       try { wrap.setPointerCapture(e.pointerId); } catch (_) { }
       e.preventDefault();
@@ -1255,7 +1343,10 @@
       }
       endDraw(e);
     });
-    wrap.addEventListener('contextmenu', function (e) { if (tool() === 'select') { e.preventDefault(); } });
+    wrap.addEventListener('contextmenu', (e) => {
+  e.preventDefault(); // блокируем ВСЕ варианты правого клика
+});
+
 
 
 
@@ -1347,7 +1438,19 @@
       setColorFromHex(hex);
     }
 
-    if (sizeInp) sizeInp.addEventListener('input', function () { showSizeHUD(size()); });
+        if (sizeInp) sizeInp.addEventListener('input', function () {
+      showSizeHUD(size());
+      updateBrushHUD();
+    });
+
+    if (alphaInp) alphaInp.addEventListener('input', function () {
+      updateBrushHUD();
+    });
+
+    if (smoothInp) smoothInp.addEventListener('input', function () {
+      updateBrushHUD();
+    });
+
 
     // ---- хоткеи кисти / пипетки / толщины
     document.addEventListener('keydown', function (e) {
@@ -1469,23 +1572,50 @@
       });
     }
 
-    window.drawAPI = window.drawAPI || {};
-    window.drawAPI.exportCompositeBlob = function () { return exportComposite(); };
+        window.drawAPI = window.drawAPI || {};
 
-    // ---- инициализация
-        initPaletteUI();
+    // экспорт PNG
+    window.drawAPI.exportCompositeBlob = function () {
+      return exportComposite();
+    };
+
+    // управление кружком курсора кисти (используется из editor.html)
+    window.drawAPI.setBrushCursorVisible = function (visible) {
+      brushCursorVisible = !!visible;
+      redrawPreview(); // перерисуем превью, чтобы кружок сразу исчез / появился
+    };
+
+       // ---- инициализация
+    initPaletteUI();
+
+    // сразу выставляем проценты для толщины / прозрачности / сглаживания
+    updateBrushHUD();
+
+    // этот кусок можно оставить — он отдельно обновляет подпись сглаживания
+    if (smoothInp) {
+      updateSmoothLabel();
+      smoothInp.addEventListener('input', updateSmoothLabel);
+    }
 
     (function initBase() {
       var base = makeLayer('Базовый слой', false);
       if (baseImageUrl) {
         try { base.canvas.style.opacity = '1'; } catch (_) { }
         var img = new Image(); img.crossOrigin = 'anonymous';
-        img.onload = function () { base.ctx.clearRect(0, 0, W, H); drawImageFit(base.ctx, img); };
-        img.onerror = function () { console.warn('[draw.js] baseImageUrl load failed'); };
+        img.onload = function () {
+          base.ctx.clearRect(0, 0, W, H);
+          drawImageFit(base.ctx, img);
+        };
+        img.onerror = function () {
+          console.warn('[draw.js] baseImageUrl load failed');
+        };
         img.src = baseImageUrl;
       }
-      setZ(); buildLayerList(); updateSelButtons();
+      setZ();
+      buildLayerList();
+      updateSelButtons();
       applyLockState();
     })();
+
   };
 })();

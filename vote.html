@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>Голосование</title>
+  <title>Голосование серии</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     :root {
       --bg: #f4f4f5; --text: #0f172a; --muted: #64748b; --card: #fff; --stroke: #e5e7eb;
@@ -17,6 +18,7 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
     }
 
+    /* Шапка сайта */
     .site-header {
       position: relative;
       display: grid;
@@ -60,13 +62,54 @@
       padding: 0 18px;
     }
 
-    .sub {
-      margin: 6px 0 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: center;
+    /* Ряд с кнопками под таймером */
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 24px;  /* небольшой отступ сверху от таймера и нормальный снизу перед кадрами */
+  flex-wrap: wrap;
+}
+
+
+    /* Название серии — отдельной строкой под верхним рядом */
+        .series-title {
+      font-size: 40px;     /* как у таймера */
+      font-weight: 800;    /* ЖИРНЫЙ */
       text-align: center;
+      margin-bottom: 20px; /* БОЛЬШЕ отступ вниз до таймера — лишняя «строка воздуха» */
+      display: block;
+    }
+
+
+
+    /* Блок таймера и статуса */
+    .timer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 8px;  /* меньше отступ вниз, чтобы кнопки были ближе к таймеру */
+  text-align: center;
+}
+
+
+        .vote-status {
+      font-size: 18px;           /* было 14 */
+      color: var(--muted);
+      min-height: 22px;          /* чуть выше под новый размер */
+    }
+
+
+    .series-link {
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--accent);
+    }
+    .series-link.placeholder {
+      color: var(--muted);
+      pointer-events: none;
     }
 
     .timer {
@@ -74,9 +117,10 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 40px;
+      font-weight: 400;          /* стало НЕжирным */
+      font-size: 40px;           /* размер тот же */
       line-height: 1;
+      letter-spacing: 0.08em;
     }
 
     .frames {
@@ -90,13 +134,11 @@
         grid-template-columns: repeat(3, minmax(240px, 1fr));
       }
     }
-
     @media (max-width: 900px) {
       .frames {
         grid-template-columns: repeat(2, minmax(240px, 1fr));
       }
     }
-
     @media (max-width: 560px) {
       .frames {
         grid-template-columns: 1fr;
@@ -111,6 +153,12 @@
       box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
     }
 
+    /* Подсветка победителя */
+    .frame--winner {
+      border-color: hsl(46, 100%, 50%);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+    }
+
     .frame img {
       display: block;
       width: 100%;
@@ -119,6 +167,7 @@
       background: #f8fafc;
       border: 1px dashed #e2e8f0;
       border-radius: 10px;
+      cursor: zoom-in;
     }
 
     .controls {
@@ -171,7 +220,7 @@
     .winner {
       display: inline-block;
       margin-top: 10px;
-      background: var(--good-bg);
+      background: hsl(46, 100%, 50%);;
       color: var(--good-ink);
       padding: 6px 10px;
       border-radius: 999px;
@@ -180,10 +229,11 @@
 
     .nav-bottom {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       gap: 12px;
-      margin: 28px 0;
+      margin: 20px 0 28px;
+      flex-wrap: wrap;
     }
 
     .btn-outline {
@@ -197,6 +247,7 @@
       color: var(--accent);
       text-decoration: none;
       font-weight: 600;
+      cursor: pointer;
     }
 
     .btn-outline:hover {
@@ -215,6 +266,7 @@
       color: #fff;
       font-weight: 800;
       text-decoration: none;
+      cursor: pointer;
     }
 
     #finalize-inline {
@@ -226,12 +278,13 @@
       border-radius: 12px;
       border: 1px dashed #cbd5e1;
       background: #fff;
+      font-size: 14px;
     }
 
     .banner strong {
       font-weight: 800;
     }
-  
+
     body.site-closed {
       overflow: hidden;
     }
@@ -239,7 +292,7 @@
       position: fixed;
       inset: 0;
       z-index: 9999;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       padding: 20px;
@@ -316,40 +369,844 @@
       color: #f9fafb;
     }
 
-</style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1"></script>
-  <script>
-    // Глобальный обработчик для глушения технической ошибки
-    // "Acquiring an exclusive Navigator LockManager lock".
-    // Эта ошибка приходит из внутренних механизмов библиотек (напр. Supabase)
-    // при попытке захватить navigator.locks. На логику голосования она не влияет,
-    // но помечается как неотловленный reject и мешает отладке.
-    window.addEventListener('unhandledrejection', function (event) {
-      try {
-        const reason = event.reason;
-        const msg = (reason && reason.message) ? reason.message : String(reason || '');
-        if (msg.includes('Navigator LockManager')) {
-          console.warn('[kadry] LockManager rejection suppressed (unhandledrejection):', msg);
-          event.preventDefault();
-          return;
-        }
-      } catch(_) {}
-    });
+    /* Экран результата — больше не используется, но стили можно оставить */
+    #result-screen {
+      display: none;
+    }
 
-    // Дополнительный перехват через window.onerror — некоторые движки
-    // вызывают именно его, а не unhandledrejection.
-    window.onerror = function (message, source, lineno, colno, error) {
+    #empty-message {
+      margin-top: 20px;
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+
+  <!-- Supabase v2 UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Утилиты админа (isAdmin и т.п.) -->
+  <script src="admin.js"></script>
+
+  <script>
+    // === Глушим шумную ошибку LockManager ===
+    window.addEventListener("unhandledrejection", (event) => {
       try {
-        const msg = String(message || '');
-        if (msg.includes('Navigator LockManager')) {
-          console.warn('[kadry] LockManager rejection suppressed (onerror):', msg);
-          return true; // подавляет вывод в консоль и остановку выполнения
+        const msg = event?.reason?.message || String(event.reason || "");
+        if (msg.includes("Navigator LockManager")) {
+          console.warn("[kadry] LockManager suppressed (unhandledrejection):", msg);
+          event.preventDefault();
         }
-      } catch(_) {}
+      } catch (_) {}
+    });
+    window.onerror = function (message) {
+      try {
+        const msg = String(message || "");
+        if (msg.includes("Navigator LockManager")) {
+          console.warn("[kadry] LockManager suppressed (onerror):", msg);
+          return true;
+        }
+      } catch (_) {}
       return false;
     };
+
+    // === Настройки Supabase ===
+    const SUPABASE_URL = "https://upanhirmxhfzpajvswoq.supabase.co";
+    const SUPABASE_ANON =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA";
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // === Параметры URL ===
+    const url = new URL(window.location.href);
+    const seriesId = Number(url.searchParams.get("series")) || null;
+
+    // === Состояние страницы ===
+    let currentSeries = null;
+    let frames = [];
+    let voteScores = {};   // frame_id -> { score, count }
+    let voteState = "active";
+    let voteRoundStart = null;
+    let voteRoundEnd   = null;
+
+    let timerIntervalId = null;
+    let timerLastSyncAt = 0;
+    let autoFinalized   = false;
+
+    let isAdminForVoting = false;
+    let adminUiBound     = false;
+
+    // голоса гостей внутри вкладки (доп. защита к RLS)
+    const votedFrames = new Set();
+
+    // устойчивый anon_id в localStorage
+    let cachedAnonId = null;
+    function getAnonId() {
+      if (cachedAnonId) return cachedAnonId;
+      try {
+        const KEY = "kadry_anon_id_v1";
+        const stored = window.localStorage.getItem(KEY);
+        if (stored) {
+          cachedAnonId = stored;
+          return cachedAnonId;
+        }
+        let id;
+        if (window.crypto?.randomUUID) {
+          id = window.crypto.randomUUID();
+        } else {
+          id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        }
+        window.localStorage.setItem(KEY, id);
+        cachedAnonId = id;
+        return cachedAnonId;
+      } catch (e) {
+        console.warn("[vote] anon_id error:", e);
+        return null;
+      }
+    }
+
+    // === подпись под таймером ===
+    function setVoteStatus(text) {
+      const el = document.getElementById("vote-status");
+      if (!el) return;
+      el.textContent = text || "";
+    }
+
+    function baseStatusByState() {
+      if (voteState === "winner_frozen") return "Принимайте овации!";
+      if (voteState === "replay_frozen") return "Может всё-таки переиграем?";
+      if (voteState === "active")        return "Да будет же игра!";
+      return "";
+    }
+
+    // === Модалка изображения ===
+    let imageModal, imageModalImg, imageModalClose;
+    function initImageModal() {
+      imageModal      = document.getElementById("image-modal");
+      imageModalImg   = document.getElementById("image-modal-img");
+      imageModalClose = document.getElementById("image-modal-close");
+
+      if (imageModalClose) {
+        imageModalClose.addEventListener("click", closeImageModal);
+      }
+      if (imageModal) {
+        imageModal.addEventListener("click", (e) => {
+          if (e.target === imageModal) closeImageModal();
+        });
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" || e.key === "Esc") closeImageModal();
+      });
+    }
+    function openImageModal(src, alt) {
+      if (!imageModal || !imageModalImg || !src) return;
+      imageModalImg.src = src;
+      imageModalImg.alt = alt || "Кадр";
+      imageModal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+    function closeImageModal() {
+      if (!imageModal) return;
+      imageModal.style.display = "none";
+      document.body.style.overflow = "";
+    }
+
+    // === Баннер "сайт закрыт" ===
+    async function checkSiteOpen() {
+      console.log("[kadry][vote] checkSiteOpen()");
+      let admin = false;
+      if (typeof window.isAdmin === "function") {
+        try { admin = await window.isAdmin(); } catch(e) {
+          console.warn("[kadry][vote] isAdmin() failed:", e);
+        }
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("site_state")
+          .select("is_open, announcement")
+          .limit(1)
+          .single();
+
+        if (error || !data) return;
+
+        const open = data.is_open !== false;
+        if (!open && !admin) {
+          const overlay = document.getElementById("site-closed-overlay");
+          const msgEl   = document.getElementById("site-closed-message");
+          if (msgEl) msgEl.textContent =
+            data.announcement || "Онлайн сейчас закрыт. Попробуйте зайти позже.";
+          if (overlay) {
+            overlay.style.display = "flex";
+            document.body.classList.add("site-closed");
+          }
+        }
+      } catch (e) {
+        console.warn("[kadry][vote] checkSiteOpen error:", e);
+      }
+    }
+
+    // === Загрузка серии ===
+    function applySeriesRow(row) {
+      if (!row) return;
+      currentSeries  = row;
+      voteState      = row.vote_state || "active";
+      voteRoundStart = row.vote_round_start_at ? new Date(row.vote_round_start_at) : null;
+      voteRoundEnd   = row.vote_round_end_at   ? new Date(row.vote_round_end_at)   : null;
+
+      const titleLink = document.getElementById("seriesName");
+      if (titleLink) {
+        titleLink.textContent = row.title || `Серия #${row.id}`;
+        titleLink.href = `series.html?id=${row.id}`;
+        titleLink.classList.remove("placeholder");
+      }
+      const backLink = document.getElementById("backToSeries");
+      if (backLink) {
+        backLink.href = `series.html?id=${row.id}`;
+      }
+            const addLink = document.getElementById("addFrame");
+      if (addLink) {
+        // если редактор участия у тебя называется иначе — замени draw.html на нужный файл
+        addLink.href = `editor.html?series=${row.id}`;
+      }
+
+    }
+
+    async function loadSeries() {
+      if (!seriesId) return;
+      const { data, error } = await supabaseClient
+        .from("series")
+        .select("id, title, vote_state, vote_round_start_at, vote_round_end_at, vote_round_id")
+        .eq("id", seriesId)
+        .single();
+
+      if (error) {
+        console.error("[vote] loadSeries error:", error);
+        return;
+      }
+      applySeriesRow(data);
+    }
+
+    // === Загрузка кадров ===
+
+// === Загрузка кадров ===
+// На КАЖДОМ этапе (active / winner_frozen / replay_frozen)
+// показываем ТОЛЬКО кадры ПОСЛЕДНЕГО раунда.
+// Раунд определяется по максимальному order_index в этой серии.
+async function loadFrames() {
+  if (!seriesId) return;
+
+  // 1. Находим индекс последнего раунда для серии
+  const { data: idxRows, error: idxError } = await supabaseClient
+    .from("frames")
+    .select("order_index")
+    .eq("series_id", seriesId)
+    .not("order_index", "is", null)
+    .order("order_index", { ascending: false })
+    .limit(1);
+
+  if (idxError) {
+    console.error("[vote] loadFrames(order_index) error:", idxError);
+    frames = [];
+    return;
+  }
+
+  // Если в серии ещё нет ни одного раунда — просто ничего не показываем
+  if (!idxRows || idxRows.length === 0) {
+    frames = [];
+    return;
+  }
+
+  const lastOrderIndex = idxRows[0].order_index;
+
+  // 2. Берём всех участников ТОЛЬКО этого раунда
+  // (победитель, проигравшие, участники переигровки — у всех один и тот же order_index)
+  const { data, error } = await supabaseClient
+    .from("frames")
+    .select("*")
+    .eq("series_id", seriesId)
+    .eq("order_index", lastOrderIndex)
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("[vote] loadFrames error:", error);
+    frames = [];
+    return;
+  }
+
+  frames = data || [];
+}
+
+
+
+    // === Загрузка счётов ===
+    function updateScoreTexts() {
+      const container = document.getElementById("frames-container");
+      if (!container) return;
+
+      const cards = container.querySelectorAll(".frame");
+      cards.forEach((card) => {
+        const frameId = Number(card.dataset.id);
+        const topEl = card.querySelector(".score-top");
+        const subEl = card.querySelector(".score-sub");
+        if (!topEl || !subEl) return;
+
+                const s = voteScores[frameId];
+        if (!s) {
+          // нет голосов или карта ещё не посчитана — показываем 0
+          topEl.textContent = "0";
+          subEl.textContent = "голосов";
+        } else {
+          topEl.textContent = String(s.score);
+          const c = s.count;
+          let word = "голосов";
+          if (c === 1) word = "голос";
+          else if (c >= 2 && c <= 4) word = "голоса";
+          subEl.textContent = word;
+        }
+
+      });
+    }
+
+    // === Загрузка голосов текущего пользователя ===
+    async function loadUserVotes() {
+      if (!currentSeries || !currentSeries.vote_round_id) return;
+
+      const anonId = getAnonId();
+      if (!anonId) return;
+
+      const { data, error } = await supabaseClient
+        .from("votes")
+        .select("frame_id")
+        .eq("round_id", currentSeries.vote_round_id)
+        .eq("anon_id", anonId);
+
+      if (error) {
+        console.warn("[vote] loadUserVotes error:", error);
+        return;
+      }
+
+      votedFrames.clear();
+      (data || []).forEach(row => votedFrames.add(row.frame_id));
+    }
+
+    // === Загрузка всех голосов ===
+    async function loadScores() {
+      if (!currentSeries || !currentSeries.vote_round_id) {
+        voteScores = {};
+        updateScoreTexts();
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from("votes")
+        .select("frame_id, value, round_id")
+        .eq("round_id", currentSeries.vote_round_id);
+
+      if (error) {
+        console.error("[vote] loadScores error:", error);
+        return;
+      }
+
+      const map = {};
+      (data || []).forEach((row) => {
+        const fid = row.frame_id;
+        if (!map[fid]) map[fid] = { score: 0, count: 0 };
+        map[fid].score += row.value || 0;
+        map[fid].count += 1;
+      });
+
+      voteScores = map;
+      updateScoreTexts();
+    }
+
+    // === Рендер кадров ===
+    function renderFrames() {
+      const container = document.getElementById("frames-container");
+      if (!container) return;
+      container.innerHTML = "";
+
+      frames.forEach((frame) => {
+        const div = document.createElement("div");
+        div.className = "frame";
+        div.dataset.id = frame.id;
+
+        // Подсветка победителя
+        if (voteState === "winner_frozen" && frame.committed) {
+          div.classList.add("frame--winner");
+        }
+
+        const img = document.createElement("img");
+        const url = frame.image_url || frame.url || "";
+        img.src = url || "";
+        img.alt = "Кадр #" + frame.id;
+        img.addEventListener("click", () => {
+          if (url) openImageModal(url, img.alt);
+        });
+        div.appendChild(img);
+
+        const controls = document.createElement("div");
+        controls.className = "controls";
+
+        const minus = document.createElement("button");
+        minus.type = "button";
+        minus.textContent = "−1";
+        minus.className = "vote-btn";
+        minus.dataset.id = frame.id;
+        minus.dataset.v = -1;
+
+        const plus = document.createElement("button");
+        plus.type = "button";
+        plus.textContent = "+1";
+        plus.className = "vote-btn";
+        plus.dataset.id = frame.id;
+        plus.dataset.v = 1;
+
+         const scoreWrap = document.createElement("div");
+        scoreWrap.className = "score";
+        const top = document.createElement("div");
+        top.className = "score-top";
+        top.textContent = "0";          // было "—"
+        const sub = document.createElement("div");
+        sub.className = "score-sub";
+        sub.textContent = "голосов";
+        scoreWrap.appendChild(top);
+        scoreWrap.appendChild(sub);
+
+        controls.appendChild(minus);
+        controls.appendChild(scoreWrap);
+        controls.appendChild(plus);
+
+        div.appendChild(controls);
+
+        // подпись «Победитель» под кадром
+        if (voteState === "winner_frozen" && frame.committed) {
+          const badge = document.createElement("div");
+          badge.className = "winner";
+          badge.textContent = "Победитель";
+          div.appendChild(badge);
+        }
+
+        container.appendChild(div);
+      });
+    }
+
+    // === Обработчики голосования ===
+    function attachVoteButtons() {
+      const buttons = document.querySelectorAll(".vote-btn");
+      const anonId = getAnonId();
+
+      buttons.forEach((btn) => {
+        const frameId = Number(btn.dataset.id);
+    // 🔒 Если раунд заморожен (переигровка), ВСЕ кнопки должны быть заблокированы
+    if (voteState === "replay_frozen" || voteState === "winner_frozen") {
+      btn.disabled = true;
+      return; // обработчик не нужен
+    }
+
+        // 🔒 Если гость уже голосовал за этот кадр — блокируем кнопку
+        // Если админ — ВСЕГДА разблокировано
+        if (isAdminForVoting) {
+          btn.disabled = false;
+        } else if (votedFrames.has(frameId)) {
+          btn.disabled = true;
+        }
+
+        btn.onclick = async () => {
+          const val = Number(btn.dataset.v);
+
+          if (!currentSeries) return;
+
+          if (voteState !== "active") {
+            console.warn("[vote] голосование не активно");
+            return;
+          }
+
+          // Админ — всегда активные кнопки
+          if (isAdminForVoting) {
+            btn.disabled = false;
+          } else if (votedFrames.has(frameId)) {
+            btn.disabled = true;
+            return;
+          }
+
+          // Формируем payload
+          const payload = {
+            frame_id: frameId,
+            value: val
+          };
+
+          if (!isAdminForVoting && anonId) {
+            payload.anon_id = anonId;
+          }
+
+          if (currentSeries.vote_round_id) {
+            payload.round_id = currentSeries.vote_round_id;
+          }
+
+          console.log("VOTE DEBUG:", {
+            frame_id: frameId,
+            round_id: currentSeries?.vote_round_id,
+            anon_id: anonId,
+            value: val,
+            payload
+          });
+
+          btn.disabled = true;
+
+          try {
+            const { error } = await supabaseClient.from("votes").insert(payload);
+
+            if (error) {
+              console.error("[vote] insert vote error:", error);
+            } else {
+              // Гость — блокируем кнопку
+              if (!isAdminForVoting) {
+                votedFrames.add(frameId);
+                const card = btn.closest(".frame");
+                if (card) {
+                  card.querySelectorAll(".vote-btn").forEach((b) => (b.disabled = true));
+                }
+              }
+
+              // Перезагружаем счёт
+              await loadScores();
+            }
+
+          } catch (e) {
+            console.error("[vote] vote failed:", e);
+
+          } finally {
+            // Админ — кнопка разблокируется
+            if (isAdminForVoting) {
+              btn.disabled = false;
+            }
+          }
+        };
+      });
+    }
+
+    // === Пустые состояния ===
+    function updateEmptyMessage() {
+      let msg = document.getElementById("empty-message");
+      if (!msg) {
+        msg = document.createElement("div");
+        msg.id = "empty-message";
+        const app = document.getElementById("app");
+        if (app) app.appendChild(msg);
+      }
+
+      if (frames.length === 0 && voteState === "active") {
+        msg.textContent = "Сейчас нет кадров в голосовании. Подождите, пока художники добавят кадры.";
+        msg.style.display = "block";
+      } else if (voteState === "replay_frozen") {
+        msg.textContent = "Победитель не определился. Ждём переигровки с новыми кадрами.";
+        msg.style.display = "block";
+      } else {
+        msg.style.display = "none";
+      }
+    }
+
+    // === Таймер ===
+    function formatTimer(ms) {
+      if (ms == null) return "—:—";
+      if (ms < 0) ms = 0;
+      const totalSeconds = Math.floor(ms / 1000);
+      const mm = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+      const ss = String(totalSeconds % 60).padStart(2, "0");
+      return `${mm}:${ss}`;
+    }
+
+    // регулярно подтягиваем серию из базы именно для таймера
+    async function syncSeriesForTimer() {
+      if (!seriesId) return;
+
+      // запоминаем, что у нас было ДО запроса
+      const prevState = voteState;
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("series")
+          .select("id, title, vote_state, vote_round_start_at, vote_round_end_at, vote_round_id")
+          .eq("id", seriesId)
+          .single();
+
+        if (error || !data) {
+          console.warn("[vote] timer sync error:", error || "no data");
+          return;
+        }
+
+        // обновляем текущую серию и voteState/voteRoundEnd
+        applySeriesRow(data);
+        timerLastSyncAt = Date.now();
+
+        // если раунд был active, а стал не active — сервер уже всё посчитал
+        if (prevState === "active" && voteState !== "active") {
+          console.log("[vote] round finished on server, reloadAll()");
+          await reloadAll();    // перерисовываем кадры, статус и т.д.
+        }
+      } catch (e) {
+        console.warn("[vote] timer sync failed:", e);
+      }
+    }
+
+    function startTimerLoop() {
+      const timerEl = document.getElementById("timer");
+      if (!timerEl || !seriesId) return;
+
+      // сбрасываем старый интервал
+      if (timerIntervalId != null) {
+        clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
+      timerLastSyncAt = 0;
+
+      const tick = async () => {
+        // раз в 3 секунды поднимаем актуальное состояние раунда с сервера
+        if (!timerLastSyncAt || Date.now() - timerLastSyncAt > 3000) {
+          await syncSeriesForTimer();
+        }
+
+        // если сервер ещё не выдал время окончания — показываем «—:—»
+        if (!voteRoundEnd) {
+          timerEl.textContent = "—:—";
+          setVoteStatus(baseStatusByState());
+          return;
+        }
+
+        // если сервер уже перевёл раунд из active в другое состояние —
+        // просто показываем 00:00 и статус по состоянию
+        if (voteState !== "active") {
+          timerEl.textContent = "00:00";
+          setVoteStatus(baseStatusByState());
+          return;
+        }
+
+        const remaining = voteRoundEnd.getTime() - Date.now();
+
+        // время вышло, но решение ещё принимается на сервере
+        if (remaining <= 0) {
+          timerEl.textContent = "00:00";
+          setVoteStatus("Подводим итоги…");
+          return;
+        }
+
+        // обычный ход таймера
+        timerEl.textContent = formatTimer(remaining);
+        setVoteStatus(baseStatusByState());
+      };
+
+      // первый запуск
+      tick();
+      timerIntervalId = setInterval(tick, 1000);
+    }
+
+    // === Админский таймер и кнопка "Подвести итог" ===
+    async function detectAdmin() {
+      let admin = false;
+      if (typeof window.isAdmin === "function") {
+        try { admin = await window.isAdmin(); } catch (e) {
+          console.warn("[kadry][vote] isAdmin() failed:", e);
+        }
+      }
+      isAdminForVoting = admin;
+      return admin;
+    }
+
+    async function adminSetRemaining(ms) {
+      if (!seriesId) return;
+      console.log("[vote][adminSetRemaining] ms =", ms, "seriesId =", seriesId);
+      try {
+        const { data, error } = await supabaseClient.rpc(
+          "voting_admin_set_remaining",
+          { p_series_id: seriesId, p_ms: ms }
+        );
+        if (error) {
+          console.error("[vote] adminSetRemaining rpc error:", error);
+          return;
+        }
+
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) {
+          console.warn("[vote] adminSetRemaining: пустой ответ");
+          return;
+        }
+
+        console.log("[vote][adminSetRemaining] RPC OK:", row);
+        applySeriesRow(row);
+        autoFinalized = false;
+        startTimerLoop();
+        broadcastRoundUpdated();
+      } catch (e) {
+        console.error("[vote] adminSetRemaining failed:", e);
+      }
+    }
+
+    async function finalizeRoundManually() {
+      if (!seriesId) return;
+      try {
+        const { error } = await supabaseClient.rpc("voting_finalize_round", {
+          p_series_id: seriesId,
+        });
+        if (error) {
+          console.error("[vote] finalize (manual) error:", error);
+          return;
+        }
+      } catch (e) {
+        console.error("[vote] finalize (manual) failed:", e);
+      }
+      await reloadAll();
+      broadcastRoundUpdated();
+    }
+
+    async function refreshAdminUi() {
+      const admin = await detectAdmin();
+
+      const finalizeBtn = document.getElementById("finalize-inline");
+      const btn10 = document.getElementById("admin-timer-10s");
+      const btn15 = document.getElementById("admin-timer-15m");
+
+      // показывать/скрывать кнопки
+      if (finalizeBtn) finalizeBtn.style.display = admin ? "inline-flex" : "none";
+      if (btn10)       btn10.style.display       = admin ? "inline-flex" : "none";
+      if (btn15)       btn15.style.display       = admin ? "inline-flex" : "none";
+
+      // Навешиваем обработчики (только один раз)
+      if (!refreshAdminUi.bound) {
+        refreshAdminUi.bound = true;
+
+        if (finalizeBtn) {
+          finalizeBtn.addEventListener("click", () => {
+            console.log("[admin] finalize");
+            finalizeRoundManually();
+          });
+        }
+
+        if (btn10) {
+          btn10.addEventListener("click", () => {
+            console.log("[admin] set 10s");
+            adminSetRemaining(10 * 1000);
+          });
+        }
+
+        if (btn15) {
+          btn15.addEventListener("click", () => {
+            console.log("[admin] set 15m");
+            adminSetRemaining(15 * 60 * 1000);
+          });
+        }
+      }
+
+      // Перерисовать UI с учётом роли
+      await loadUserVotes();
+      renderFrames();
+      attachVoteButtons();
+      await loadScores();
+    }
+
+    // === BroadcastChannel для синхронизации вкладок ===
+    let bc = null;
+
+    function initBroadcastChannel() {
+      if (!("BroadcastChannel" in window)) return;
+      if (bc) return; // уже инициализирован
+
+      bc = new BroadcastChannel("kadry-vote");
+
+      bc.onmessage = async (event) => {
+        const data = event?.data;
+        if (!data) return;
+
+        // Другой таб сообщил, что раунд обновился
+        if (data.type === "round_updated" && data.seriesId === seriesId) {
+          console.log("[vote] broadcast: round_updated, reloadAll()");
+          await reloadAll();
+        }
+      };
+    }
+
+    function broadcastRoundUpdated() {
+      if (!bc || !seriesId) return;
+      try {
+        bc.postMessage({ type: "round_updated", seriesId });
+      } catch (e) {
+        console.warn("[vote] broadcast failed:", e);
+      }
+    }
+
+    // === Supabase Realtime: автообновление при смене статуса серии ===
+    let seriesRealtimeChannel = null;
+
+    function initSeriesRealtime() {
+      if (!seriesId) return;
+      if (!supabaseClient || typeof supabaseClient.channel !== "function") return;
+      if (seriesRealtimeChannel) return; // уже подписались
+
+      seriesRealtimeChannel = supabaseClient
+        .channel("series-vote-" + seriesId)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "series",
+            filter: `id=eq.${seriesId}`,
+          },
+          async (payload) => {
+            const oldState = payload?.old?.vote_state;
+            const newState = payload?.new?.vote_state;
+
+            if (oldState !== newState) {
+              console.log(
+                "[vote] realtime series status changed:",
+                oldState,
+                "→",
+                newState
+              );
+              await reloadAll(); // перерисовываем кадры/результат/кнопки
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log("[vote] realtime subscribe status =", status);
+        });
+    }
+
+    async function reloadAll() {
+      await loadSeries();
+      await loadFrames();      // 1 — загружаем кадры
+
+      renderFrames();          // 2 — рисуем карточки
+      await loadUserVotes();   // 3 — узнаём, какие кадры гость уже оценил
+
+      attachVoteButtons();     // 4 — создаём кнопки (и блокируем гостю)
+
+      await loadScores();      // 5 — показываем цифры голосов
+
+      startTimerLoop();
+      updateEmptyMessage();
+    }
+
+    // === Старт страницы ===
+    document.addEventListener("DOMContentLoaded", async () => {
+      initImageModal();
+      await checkSiteOpen();
+
+      // инициализируем каналы
+      initBroadcastChannel();
+      initSeriesRealtime();
+
+      // первая отрисовка
+      await reloadAll();
+      await refreshAdminUi();
+
+      window.addEventListener("admin:enabled", async () => {
+        await refreshAdminUi();
+      });
+      window.addEventListener("admin:disabled", async () => {
+        await refreshAdminUi();
+      });
+    });
   </script>
-  <script src="admin.js"></script>
 </head>
 <body>
 
@@ -361,13 +1218,13 @@
       </div>
     </div>
   </div>
+
   <div id="image-modal" class="image-modal" style="display:none">
     <div class="image-modal-inner">
       <button type="button" id="image-modal-close" class="image-modal-close">×</button>
       <img id="image-modal-img" class="image-modal-img" alt="Просмотр кадра">
     </div>
   </div>
-
 
   <header class="site-header">
     <div class="hslot h1">
@@ -381,33 +1238,43 @@
     <a class="hslot h4" href="#">Профиль</a>
   </header>
 
-  <div class="wrap">
-    <h1>Голосование</h1>
-    <div class="sub">
-      <a id="seriesName" class="series-link placeholder" href="#">Название серии</a>
+    <div class="wrap" id="app">
+    <!-- СНАЧАЛА НАЗВАНИЕ СЕРИИ -->
+    <a id="seriesName"
+       class="series-link placeholder series-title"
+       href="#">Название серии</a>
+
+    <!-- ПОТОМ ТАЙМЕР СО СТАТУСОМ -->
+    <div class="timer-block">
       <div class="timer"><span id="timer">—:—</span></div>
+      <div id="vote-status" class="vote-status"></div>
     </div>
 
-    <div id="frames" class="frames"></div>
-
-        <div class="nav-bottom">
+    <!-- СРАЗУ ПОД ТАЙМЕРОМ — РЯД С КНОПКАМИ -->
+    <div class="top-row">
       <a id="backToSeries" class="btn-outline" href="#">← Вернуться в серию</a>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button id="finalize-inline" class="btn-primary" type="button">Подвести итог</button>
-        <!-- Админские кнопки управления таймером (только для отладки).
-             ВАЖНО: эти кнопки видит только админ (is-admin),
-             обычные пользователи их никогда не увидят. -->
-        <button id="admin-timer-27" class="btn-primary" type="button" style="display:none;">⏱ 27:00</button>
-        <button id="admin-timer-15" class="btn-primary" type="button" style="display:none;">⏱ 15:00</button>
-        <button id="admin-timer-10" class="btn-primary" type="button" style="display:none;">⏱ 00:10</button>
-      </div>
+      <a id="addFrame" class="btn-outline" href="#">Добавить кадр</a>
     </div>
 
+    <!-- СЕТКА КАДРОВ -->
+    <div id="frames-container" class="frames"></div>
+
+    <!-- result-screen больше не используется -->
+    <section id="result-screen"></section>
+
+    <!-- АДМИНСКИЕ КНОПКИ ВНИЗУ -->
+    <div class="nav-bottom">
+      <button id="finalize-inline" class="btn-primary" type="button">Подвести итог</button>
+      <button id="admin-timer-10s" class="btn-primary" type="button" style="display:none;">⏱ 00:10</button>
+      <button id="admin-timer-15m" class="btn-primary" type="button" style="display:none;">⏱ 15:00</button>
+    </div>
+
+    <!-- ПРАВИЛА РАУНДА -->
     <div class="banner" style="margin-top:20px">
       <div><strong>Правила раунда</strong></div>
       <ul>
         <li><b>Термины.</b> <i>Счёт</i> — сумма голосов (+1/−1). <i>Голоса</i> — сколько раз по кадру проголосовали.</li>
-        <li><b>Кто участвует.</b> Участвуют только кадры с <code>голоса &gt; 0</code>. Если у всех <code>голоса = 0</code> — переигровка.</li>
+        <li><b>Кто участвует.</b> Участвуют только кадры текущего шага. Если у всех <code>голоса = 0</code> — переигровка.</li>
         <li><b>Порог участия (адаптивный).</b> По умолчанию — <b>2 голоса</b>. Если суммарно по раунду <b>≤ 3</b>, порог — <b>1</b>.</li>
         <li><b>Победитель.</b> Сначала максимальный счёт, при равенстве — больше голосов; полная ничья — переигровка.</li>
         <li><b>Нулевой счёт.</b> Кадр со счётом <code>0</code> может победить только при выполнении порога участия.</li>
@@ -417,1036 +1284,5 @@
     </div>
   </div>
 
-    <script>
-    (function(){
-      const urlParams = new URLSearchParams(window.location.search || '');
-      const seriesId = Number(urlParams.get('series')) || null;
-      if(!seriesId){
-        console.error('seriesId is missing in URL (?series=...)');
-      }
-
-      // --- Supabase client (same project as other pages) ---
-      const SUPABASE_URL = "https://upanhirmxhfzpajvswoq.supabase.co";
-      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA";
-      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-      const imageModal = document.getElementById('image-modal');
-      const imageModalImg = document.getElementById('image-modal-img');
-      const imageModalClose = document.getElementById('image-modal-close');
-
-      function openImageModal(src, alt) {
-        if (!imageModal || !imageModalImg) return;
-        imageModalImg.src = src;
-        imageModalImg.alt = alt || 'Кадр';
-        imageModal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-      }
-
-      function closeImageModal() {
-        if (!imageModal) return;
-        imageModal.style.display = 'none';
-        document.body.style.overflow = '';
-      }
-
-      if (imageModalClose) {
-        imageModalClose.addEventListener('click', function () {
-          closeImageModal();
-        });
-      }
-      if (imageModal) {
-        imageModal.addEventListener('click', function (e) {
-          if (e.target === imageModal) {
-            closeImageModal();
-          }
-        });
-      }
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' || e.key === 'Esc') {
-          closeImageModal();
-        }
-      });
-
-  
-
-async function checkSiteOpen() {
-  try {
-    const { data, error } = await db
-      .from('site_state')
-      .select('is_open, announcement')
-      .limit(1)
-      .single();
-    if (error) {
-      console.warn('site_state load error', error);
-      return;
-    }
-    const open = data && data.is_open !== false;
-
-    // Админ может продолжать работу, даже если сайт закрыт для гостей
-    let adminBypass = false;
-    try {
-      if (!open && typeof window.isAdmin === 'function') {
-        adminBypass = await window.isAdmin();
-      }
-    } catch (e) {
-      console.warn('isAdmin check in checkSiteOpen failed', e);
-    }
-
-    const overlay = document.getElementById('site-closed-overlay');
-    const messageEl = document.getElementById('site-closed-message');
-
-    if (!open && !adminBypass) {
-      if (overlay) {
-        if (messageEl) {
-          messageEl.textContent =
-            (data && data.announcement) ||
-            'Онлайн сейчас закрыт. Попробуйте зайти позже.';
-        }
-        overlay.style.display = 'flex';
-        document.body.classList.add('site-closed');
-      }
-    } else {
-      // Сайт открыт или админ вошёл — убираем блокировку на всякий случай
-      if (overlay) {
-        overlay.style.display = 'none';
-        document.body.classList.remove('site-closed');
-      }
-    }
-  } catch (e) {
-    console.warn('checkSiteOpen failed', e);
-  }
-}
-checkSiteOpen();
-
-// Если админ залогинился уже после загрузки страницы — снимаем блокировку
-window.addEventListener('admin:enabled', function () {
-  var overlay = document.getElementById('site-closed-overlay');
-  if (overlay) {
-    overlay.style.display = 'none';
-    document.body.classList.remove('site-closed');
-  }
-});
-// Если админ вошёл уже после того, как сайт был закрыт для гостей,
-  // убираем оверлей при событии admin:enabled.
-  window.addEventListener('admin:enabled', function () {
-    try {
-      const overlay = document.getElementById('site-closed-overlay');
-      if (overlay) overlay.style.display = 'none';
-      document.body.classList.remove('site-closed');
-    } catch (_) {}
-  });
-
-te_state_${id}`;
-      const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
-
-      const K_ROUND      = (id)=>`kadry_round_at_${id}`;          // ISO start
-      const K_END        = (id)=>`kadry_end_at_${id}`;            // ms (number)
-      const K_LAST       = (id)=>`kadry_last_seen_${id}`;          // ms (number, last activity)
-
-      const LS_ROUND_AT  = (id)=>`series_${id}_round_start_at`;   // ISO start (shadow)
-      const LS_END_AT    = (id)=>`series_${id}_round_end_at`;     // ms
-      const LS_LAST_SEEN = (id)=>`series_${id}_last_seen_ms`;     // ms (for diagnostics)
-      const K_FROZEN     = (id)=>`kadry_frozen_${id}`;            // not used directly here, оставляем для совместимости
-
-      // Локальный снимок активных кадров (только vote.html его читает/пишет)
-      const LS_SNAPSHOT  = (id)=>`series_${id}_snapshot`;
-      const LS_SCORES    = (id)=>`series_${id}_scores_snapshot`;  // снимок счёта/голосов для заморозки
-
-      // Крышка и сумма продлений — используются только на фронте, чтобы не уходить за 30 минут
-      const K_CAP        = (id)=>`kadry_cap_at_${id}`;            // ms верхняя граница раунда
-      const K_EXT_TS     = (id)=>`kadry_ext_total_${id}`;         // суммарное продление, мс
-
-      const MAX_MS       = 30 * 60 * 1000;  // 30 минут максимум
-      const BROADCAST_KEY = 'kadry_broadcast';
-      const EXT_MS       = 5 * 60 * 1000;   // +5 минут за новый кадр
-
-      // --- Состояние страницы ---
-      let activeFrames = [];
-      /** Map<number, { score:number, votes:number }> */
-      let scoresMap = new Map();
-      let timerId = null;
-      let lastBroadcastRaw = null;  // последнее значение kadry_broadcast, чтобы отслеживать изменения
-      let currentState = 'active';
-      let autoFinalizeStarted = false;  // чтобы не дёргать финализацию много раз
-
-      // --- Упрощённый "анонимный" id для голоса (в рамках браузера) ---
-      const ANON_KEY = 'kadry_anon_id';
-      function getAnonId(){
-        let v = localStorage.getItem(ANON_KEY);
-        if(!v){
-          v = 'anon_' + Math.random().toString(36).slice(2) + String(Date.now()%1e6);
-          localStorage.setItem(ANON_KEY, v);
-        }
-        return v;
-      }
-      const anonId = getAnonId();
-
-      function hasDB(){
-        return !!db;
-      }
-
-      // --- Вспомогательные функции таймера ---
-      function getEndMs(){
-        const raw = localStorage.getItem(K_END(seriesId)) || localStorage.getItem(LS_END_AT(seriesId)) || '0';
-        const n = Number(raw);
-        return Number.isFinite(n) && n>0 ? n : 0;
-      }
-
-      function getState(){
-        return localStorage.getItem(K_STATE(seriesId)) || localStorage.getItem(LS_STATE(seriesId)) || 'active';
-      }
-
-      function setState(next){
-        currentState = next;
-        localStorage.setItem(K_STATE(seriesId), next);
-        localStorage.setItem(LS_STATE(seriesId), next);
-        if(next !== 'active'){
-          localStorage.setItem(K_FROZEN(seriesId), '1');
-        }else{
-          localStorage.removeItem(K_FROZEN(seriesId));
-        }
-      }
-
-      function isHtmlAdmin(){
-        try{
-          return document.documentElement.classList.contains('is-admin');
-        }catch(_){ return false; }
-      }
-
-      function updateFinalizeVisibility(){
-        var btn = document.getElementById('finalize-inline');
-        if(!btn) return;
-        if(!activeFrames || !activeFrames.length || !isHtmlAdmin()){
-          btn.style.display = 'none';
-          btn.disabled = true;
-        }else{
-          btn.style.display = 'inline-flex';
-          btn.disabled = false;
-        }
-      }
-
-      function ensureRoundMeta(act){
-        if(!seriesId || !act || !act.length) return;
-        try{
-          // Старт раунда — время создания первого кадра
-          var startMs = Math.min.apply(null, act.map(function(a){ return new Date(a.created_at).getTime(); }));
-          if(!isFinite(startMs)) return;
-          var startIso = new Date(startMs).toISOString();
-
-          // Базовый конец раунда и эмуляция продлений по каждому новому кадру
-          var endMs = startMs + MAX_MS;
-          var lastSeen = startMs;
-          var sorted = act.slice().sort(function(a,b){ return new Date(a.created_at) - new Date(b.created_at); });
-          for(var i=0;i<sorted.length;i++){
-            var t = new Date(sorted[i].created_at).getTime();
-            if(t > lastSeen){
-              endMs = Math.min(startMs + MAX_MS, endMs + EXT_MS);
-              lastSeen = t;
-            }
-          }
-
-          var state = getState() || 'active';
-
-          // Сохраняем во все ключи, чтобы синхронизировать с другими страницами
-          localStorage.setItem(LS_STATE(seriesId), state);
-          localStorage.setItem(LS_ROUND_AT(seriesId), startIso);
-          localStorage.setItem(LS_END_AT(seriesId), String(endMs));
-          localStorage.setItem(LS_LAST_SEEN(seriesId), String(lastSeen));
-          localStorage.setItem(K_STATE(seriesId), state);
-          localStorage.setItem(K_ROUND(seriesId), startIso);
-          localStorage.setItem(K_END(seriesId), String(endMs));
-          localStorage.setItem(K_LAST(seriesId), String(lastSeen));
-        }catch(_){ /* noop */ }
-      }
-
-      function checkBroadcast(){
-        // ВАЖНО (НЕ МЕНЯТЬ):
-        // Этот поллинг — спаситель всей системы.
-        // Событие window.storage НЕ ВСЕГДА срабатывает.
-        // Но polling раз в секунду гарантирует, что:
-        //   • новый кадр появится на странице
-        //   • applySync выполнится
-        //   • таймер увеличится на +5 минут
-        // Удаление или изменение этой функции вновь сломает таймер и обновление кадров.
-        if (!seriesId) return;
-        try{
-          const cur = localStorage.getItem(BROADCAST_KEY) || null;
-          if (!cur || cur === lastBroadcastRaw) return;
-          lastBroadcastRaw = cur;
-          const msg = JSON.parse(cur);
-          if (!msg || String(msg.seriesId) !== String(seriesId)) return;
-          console.log('[kadry] broadcast detected via poll', msg);
-          applySync(msg);  // ✔ ВАЖНО: именно вызов applySync обеспечивает появление нового кадра + продление времени
-        }catch(e){
-          console.warn('kadry broadcast poll error', e);
-        }
-      }
-
-      function startTimerLoop(){
-        if(timerId != null) clearInterval(timerId);
-        timerId = setInterval(function(){
-          const timerEl = document.getElementById('timer');
-          if(!timerEl || !seriesId) return;
-
-          const state = getState();
-          // Каждый тик проверяем, не пришло ли обновление через kadry_broadcast.
-          checkBroadcast();
-          const endMs = getEndMs();
-          const now = Date.now();
-
-          if(!endMs){
-            timerEl.textContent = '—:—';
-            return;
-          }
-
-          let remaining = Math.max(0, endMs - now);
-          const totalSeconds = Math.floor(remaining / 1000);
-          const mm = String(Math.floor(totalSeconds / 60)).padStart(2,'0');
-          const ss = String(totalSeconds % 60).padStart(2,'0');
-          timerEl.textContent = mm + ':' + ss;
-
-          if(remaining <= 0){
-            timerEl.textContent = '00:00';
-            // При первом достижении нуля пытаемся автоматически подвести итог раунда.
-            autoFinalizeRoundOnTimeout();
-          }
-        }, 1000);
-      }
-
-      // --- Загрузка данных о серии ---
-      async function loadSeriesMeta(){
-        if(!seriesId) return;
-        try{
-          const { data, error } = await db
-            .from('series')
-            .select('id,title')
-            .eq('id', seriesId)
-            .limit(1)
-            .maybeSingle();
-          if(error){ console.warn('series load error', error); return; }
-          if(!data) return;
-
-          const link = document.getElementById('seriesName');
-          if(link){
-            link.textContent = data.title || ('Серия #' + data.id);
-            link.href = 'series.html?id=' + data.id;
-            link.classList.remove('placeholder');
-          }
-          const back = document.getElementById('backToSeries');
-          if(back){
-            back.href = 'series.html?id=' + data.id;
-          }
-        }catch(e){
-          console.error('loadSeriesMeta failed', e);
-        }
-      }
-
-      // --- Кадры текущего раунда ---
-      async function readActiveFrames(){
-        if(!seriesId) return [];
-        try{
-          // Найдём индекс последнего утверждённого кадра
-          const { data: maxRow, error: maxErr } = await db
-            .from('frames')
-            .select('order_index')
-            .eq('series_id', seriesId)
-            .eq('committed', true)
-            .order('order_index', { ascending:false })
-            .limit(1);
-
-          if(maxErr){
-            console.warn('frames max committed error', maxErr);
-          }
-          const baseIndex = (maxRow && maxRow.length && maxRow[0].order_index != null)
-            ? maxRow[0].order_index
-            : 1;
-          const voteIndex = baseIndex + 1;
-
-          const { data: frames, error: ferr } = await db
-            .from('frames')
-            .select('id,image_url,created_at,in_vote,order_index')
-            .eq('series_id', seriesId)
-            .eq('in_vote', true)
-            .eq('order_index', voteIndex)
-            .order('id', { ascending:true });
-
-          if(ferr){
-            console.warn('frames load error', ferr);
-            return [];
-          }
-          return frames || [];
-        }catch(e){
-          console.error('readActiveFrames failed', e);
-          return [];
-        }
-      }
-
-      // --- Чтение голосов для списка кадров ---
-      async function readScores(frameIds){
-        const map = new Map();
-        if(!frameIds || !frameIds.length) return map;
-
-        const roundId = localStorage.getItem(K_ROUND(seriesId)) || localStorage.getItem(LS_ROUND_AT(seriesId));
-        if(!roundId){
-          // Раунд ещё не инициализирован
-          for(const id of frameIds){
-            map.set(id, { score:0, votes:0 });
-          }
-          return map;
-        }
-
-        try{
-          const { data, error } = await db
-            .from('votes')
-            .select('frame_id,value')
-            .eq('round_id', roundId)
-            .in('frame_id', frameIds);
-
-          if(error){
-            console.warn('votes load error', error);
-            for(const id of frameIds){
-              map.set(id, { score:0, votes:0 });
-            }
-            return map;
-          }
-
-          for(const id of frameIds){
-            map.set(id, { score:0, votes:0 });
-          }
-
-          for(const row of (data || [])){
-            const fid = row.frame_id;
-            if(!map.has(fid)) continue;
-            const rec = map.get(fid);
-            const v = Number(row.value) || 0;
-            rec.score += v;
-            rec.votes += 1;
-          }
-          return map;
-        }catch(e){
-          console.error('readScores failed', e);
-          for(const id of frameIds){
-            map.set(id, { score:0, votes:0 });
-          }
-          return map;
-        }
-      }
-
-      // --- Отправка голоса ---
-            async function sendVote(frameId, value){
-        if(!seriesId) return;
-        const state = getState();
-        const endMs = getEndMs();
-        const now = Date.now();
-        if(state !== 'active' || !endMs || now >= endMs){
-          alert('Раунд уже завершён или заморожен, голосовать нельзя.');
-          return;
-        }
-
-        const roundId = localStorage.getItem(K_ROUND(seriesId)) || localStorage.getItem(LS_ROUND_AT(seriesId));
-        if(!roundId){
-          alert('Раунд ещё не инициализирован, попробуйте обновить страницу.');
-          return;
-        }
-
-        try{
-          // для админа используем отдельный anon_id на каждый голос,
-          // чтобы обойти ограничение "1 голос на anon_id в раунде"
-          let effectiveAnonId = anonId;
-          if (isHtmlAdmin && typeof isHtmlAdmin === 'function' && isHtmlAdmin()) {
-            effectiveAnonId = 'admin_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
-          }
-
-          const payload = {
-            frame_id: frameId,
-            value: value,
-            round_id: roundId,
-            anon_id: effectiveAnonId
-          };
-          const { error } = await db.from('votes').insert([payload]);
-          if(error){
-            const msg = (error.message || '').toLowerCase();
-            if(!isHtmlAdmin()){
-              if(error.code === '23505' || /duplicate/.test(msg) || /already/.test(msg)){
-                alert('Вы можете поставить только 1 оценку на кадр');
-                return;
-              }
-            }
-          }
-
-// Успех — перечитаем результаты и перерисуем
-          scoresMap = await readScores(activeFrames.map(f => f.id));
-        // Сохраняем снимок счёта для последующей заморозки (winner_frozen / replay_frozen)
-        try{
-          const arr = [];
-          scoresMap.forEach(function(v, k){ arr.push({ frame_id:k, score:v.score||0, votes:v.votes||0 }); });
-          localStorage.setItem(LS_SCORES(seriesId), JSON.stringify(arr));
-        }catch(_){/* noop */}
-        draw();
-        }catch(e){
-          console.error('sendVote failed', e);
-          alert('Ошибка при голосовании.');
-        }
-      }
-
-
-      // --- Правила определения победителя ---
-      function computeWinner(){
-        if(!activeFrames || !activeFrames.length) return { type:'replay', reason:'no_frames' };
-
-        const rows = activeFrames.map(function(f){
-          const rec = scoresMap.get(f.id) || { score:0, votes:0 };
-          return { frame:f, score:rec.score||0, votes:rec.votes||0 };
-        });
-
-        const participants = rows.filter(function(r){ return r.votes > 0; });
-        if(participants.length === 0){
-          return { type:'replay', reason:'no_votes' };
-        }
-
-        const totalVotes = participants.reduce(function(sum, r){ return sum + r.votes; }, 0);
-        const threshold = totalVotes <= 3 ? 1 : 2;
-
-        // Единственный участник, счёт >= 1 — побеждает независимо от порога
-        if(participants.length === 1 && participants[0].score >= 1){
-          return { type:'winner', frame: participants[0].frame, reason:'single_positive' };
-        }
-
-        const eligible = participants.filter(function(r){ return r.votes >= threshold; });
-        if(eligible.length === 0){
-          return { type:'replay', reason:'below_threshold' };
-        }
-
-        let maxScore = -Infinity;
-        eligible.forEach(function(r){
-          if(r.score > maxScore) maxScore = r.score;
-        });
-
-        if(maxScore < 0){
-          return { type:'replay', reason:'negative_max' };
-        }
-
-        const bestByScore = eligible.filter(function(r){ return r.score === maxScore; });
-        let maxVotes = -Infinity;
-        bestByScore.forEach(function(r){
-          if(r.votes > maxVotes) maxVotes = r.votes;
-        });
-        const bestByVotes = bestByScore.filter(function(r){ return r.votes === maxVotes; });
-
-        if(bestByVotes.length === 1){
-          return { type:'winner', frame: bestByVotes[0].frame, reason:'unique_best' };
-        }
-        return { type:'replay', reason:'tie' };
-      }
-
-      // --- Применение результата раунда ---
-      async function finalizeRound(){
-        if(!isHtmlAdmin()){
-          alert('Только администратор может завершать голосование.');
-          return;
-        }
-        if(!seriesId) return;
-        const state = getState();
-        if(state !== 'active'){
-          alert('Раунд уже заморожен. Обновите страницу.');
-          return;
-        }
-
-        // Перечитываем очки на всякий случай
-        scoresMap = await readScores(activeFrames.map(function(f){ return f.id; }));
-        const result = computeWinner();
-
-        if(result.type === 'replay'){
-          // Переигровка вручную: победитель не определён.
-          // ВАЖНО: при таком завершении таймер должен вести себя так же,
-          // как при естественном окончании времени — обнулиться.
-          const nowMs = Date.now();
-          localStorage.setItem(K_END(seriesId), String(nowMs));
-          localStorage.setItem(LS_END_AT(seriesId), String(nowMs));
-
-          setState('replay_frozen');
-          alert('Победитель не определён — переигровка по тем же кадрам.');
-          draw();
-          return;
-        }
-
-        const winnerFrame = result.frame;
-        if(!winnerFrame){
-          setState('replay_frozen');
-          alert('Не удалось определить победителя.');
-          draw();
-          return;
-        }
-
-        // Перед изменением состояния сохраняем текущий снимок счёта в localStorage,
-        // чтобы в замороженном экране были видны результаты голосования.
-        try{
-          const arr = [];
-          scoresMap.forEach(function(v, k){ arr.push({ frame_id:k, score:v.score||0, votes:v.votes||0 }); });
-          localStorage.setItem(LS_SCORES(seriesId), JSON.stringify(arr));
-        }catch(_){/* noop */}
-
-        // Помечаем победителя как committed, остальных — в историю
-        try{
-          const ids = activeFrames.map(function(f){ return f.id; });
-          const loserIds = ids.filter(function(id){ return id !== winnerFrame.id; });
-
-          const updates = [];
-
-          updates.push(
-            db.from('frames')
-              .update({ committed:true, in_vote:false, history:false })
-              .eq('id', winnerFrame.id)
-          );
-
-          if(loserIds.length){
-            updates.push(
-              db.from('frames')
-                .update({ in_vote:false, history:true, committed:false })
-                .in('id', loserIds)
-            );
-          }
-
-          const results = await Promise.all(updates);
-          for(const r of results){
-            if(r.error){
-              console.error('frames update error', r.error);
-              alert('Не удалось зафиксировать результат голосования.');
-              return;
-            }
-          }
-
-          // Сбрасываем таймер в ноль, чтобы заморозка вела себя так же,
-          // как если бы просто закончилось время.
-          const nowMs = Date.now();
-          localStorage.setItem(K_END(seriesId), String(nowMs));
-          localStorage.setItem(LS_END_AT(seriesId), String(nowMs));
-
-          setState('winner_frozen');
-          alert('Победитель раунда зафиксирован.');
-          // После фиксации можно перезагрузить кадры: следующих кандидатов пока нет
-          await refresh();
-        }catch(e){
-          console.error('finalizeRound failed', e);
-          alert('Ошибка при фиксации результата.');
-        }
-      }
-
-      // --- Рисование карточек кадров ---
-      function draw(){
-        const container = document.getElementById('frames');
-        if(!container) return;
-        container.innerHTML = '';
-
-        const endMs = getEndMs();
-        const now = Date.now();
-        const state = getState();
-        const votingLocked = !endMs || now >= endMs || state !== 'active';
-
-        if(!activeFrames || !activeFrames.length){
-          const empty = document.createElement('p');
-          empty.textContent = 'Пока нет кадров для голосования.';
-          empty.style.color = '#64748b';
-          container.appendChild(empty);
-          const btn = document.getElementById('finalize-inline');
-          if(btn){ btn.style.display = 'none'; btn.disabled = true; }
-          updateFinalizeVisibility();
-          return;
-        }
-
-        // Если раунд уже завершён/заморожен — покажем бейдж победителя
-        let winnerId = null;
-        const stateNow = getState();
-        if(stateNow !== 'active'){
-          const res = computeWinner();
-          if(res && res.type === 'winner' && res.frame){
-            winnerId = res.frame.id;
-          }
-        }
-
-        activeFrames.forEach(function(frame){
-          const wrap = document.createElement('div');
-          wrap.className = 'frame';
-
-                    const img = document.createElement('img');
-          img.alt = 'Кадр #' + frame.id;
-          img.src = frame.image_url;
-          img.style.cursor = 'zoom-in';
-          img.addEventListener('click', function () {
-            openImageModal(frame.image_url, 'Кадр #' + frame.id);
-          });
-          wrap.appendChild(img);
-
-          const ctr = document.createElement('div');
-          ctr.className = 'controls';
-
-          const minus = document.createElement('button');
-          minus.type = 'button';
-          minus.textContent = '−1';
-
-          const plus = document.createElement('button');
-          plus.type = 'button';
-          plus.textContent = '+1';
-
-          const scWrap = document.createElement('div');
-          scWrap.className = 'score';
-
-          const rec = scoresMap.get(frame.id) || { score:0, votes:0 };
-          const top = document.createElement('div');
-          top.className = 'score-top';
-          top.textContent = (rec.score >= 0 ? '+' : '') + String(rec.score);
-
-          const sub = document.createElement('div');
-          sub.className = 'score-sub';
-          sub.textContent = rec.votes + ' голос(ов)';
-
-          scWrap.appendChild(top);
-          scWrap.appendChild(sub);
-
-          if(votingLocked){
-            minus.disabled = true;
-            plus.disabled = true;
-          }else{
-            minus.addEventListener('click', function(){ sendVote(frame.id, -1); });
-            plus.addEventListener('click', function(){ sendVote(frame.id, +1); });
-          }
-
-          ctr.appendChild(minus);
-          ctr.appendChild(scWrap);
-          ctr.appendChild(plus);
-
-          wrap.appendChild(ctr);
-
-          if(winnerId && winnerId === frame.id){
-            const badge = document.createElement('div');
-            badge.className = 'winner';
-            badge.textContent = 'Победитель раунда';
-            wrap.appendChild(badge);
-          }
-
-          container.appendChild(wrap);
-        });
-        updateFinalizeVisibility();
-      }
-
-      // --- Кнопки и инициализация ---
-            function adminSetTimerMinutes(mins){
-        // Админская настройка таймера ДЛЯ ОТЛАДКИ.
-        // ВАЖНО: не влияет на правила голосования, только сдвигает локальный дедлайн.
-        if(!seriesId) return;
-        const st = getState();
-        if(st !== 'active'){
-          alert('Таймер можно менять только в активном раунде.');
-          return;
-        }
-        const now = Date.now();
-        const e = now + mins * 60 * 1000;
-        localStorage.setItem(K_END(seriesId), String(e));
-        localStorage.setItem(LS_END_AT(seriesId), String(e));
-        console.log('[kadry admin] set timer to', mins, 'min →', { now, e });
-      }
-
-      function adminSetTimerSeconds(secs){
-        // Админская настройка таймера ДЛЯ ОТЛАДКИ (секунды).
-        // Нужна для ситуаций, когда надо быстро довести голосование до конца.
-        if(!seriesId) return;
-        const st = getState();
-        if(st !== 'active'){
-          alert('Таймер можно менять только в активном раунде.');
-          return;
-        }
-        const now = Date.now();
-        const e = now + secs * 1000;
-        localStorage.setItem(K_END(seriesId), String(e));
-        localStorage.setItem(LS_END_AT(seriesId), String(e));
-        console.log('[kadry admin] set timer to', secs, 'sec →', { now, e });
-      }
-
-      function setupControls(){
-        const btn = document.getElementById('finalize-inline');
-        if(btn && !btn._kadryBound){
-          btn._kadryBound = true;
-          btn.addEventListener('click', function(){
-            finalizeRound();
-          });
-        }
-
-        // Админские кнопки таймера (только для отладки). Видны только администратору.
-        const btn27 = document.getElementById('admin-timer-27');
-        const btn15 = document.getElementById('admin-timer-15');
-        const btn10 = document.getElementById('admin-timer-10');
-        if(isHtmlAdmin()){
-          if(btn27 && !btn27._kadryBound){
-            btn27._kadryBound = true;
-            btn27.style.display = 'inline-flex';
-            btn27.addEventListener('click', function(){ adminSetTimerMinutes(27); });
-          }
-          if(btn15 && !btn15._kadryBound){
-            btn15._kadryBound = true;
-            btn15.style.display = 'inline-flex';
-            btn15.addEventListener('click', function(){ adminSetTimerMinutes(15); });
-          }
-          if(btn10 && !btn10._kadryBound){
-            btn10._kadryBound = true;
-            btn10.style.display = 'inline-flex';
-            btn10.addEventListener('click', function(){ adminSetTimerSeconds(10); });
-          }
-        }else{
-          if(btn27){ btn27.style.display = 'none'; }
-          if(btn15){ btn15.style.display = 'none'; }
-          if(btn10){ btn10.style.display = 'none'; }
-        }
-
-        updateFinalizeVisibility();
-      }
-
-      // --- Основная логика работы (оставляем как в исходном фрагменте) ---
-      async function refresh() {
-        const state = getState();
-        currentState = state;
-
-        if (state !== 'active') {
-          if (hasDB()) {
-            try {
-              const live = await readActiveFrames();
-              let shouldUnfreeze = false;
-              if (live && live.length) {
-                let snap = [];
-                try {
-                  const raw = localStorage.getItem(LS_SNAPSHOT(seriesId)) || 'null';
-                  const js = JSON.parse(raw);
-                  if (Array.isArray(js)) snap = js;
-                } catch (_) {}
-                const snapIds = new Set(snap.map(x => x.id));
-                for (const f of live) {
-                  if (!snapIds.has(f.id)) { shouldUnfreeze = true; break; }
-                }
-              }
-              if (shouldUnfreeze) {
-                const startAtNow = new Date().toISOString();
-                await applySync({ type: 'unfreeze', seriesId: seriesId, round: { startAt: startAtNow } });
-                return;
-              }
-            } catch (_) { /* noop */ }
-          }
-          try {
-            const raw = localStorage.getItem(LS_SNAPSHOT(seriesId)) || 'null';
-            const snap = JSON.parse(raw);
-            activeFrames = Array.isArray(snap) ? snap : [];
-          } catch (e) { activeFrames = []; }
-
-          // Для замороженного состояния пытаемся восстановить сохранённый снимок счёта,
-          // чтобы показать историю "битвы" до старта нового голосования.
-          scoresMap = new Map();
-          try{
-            const rawScores = localStorage.getItem(LS_SCORES(seriesId)) || 'null';
-            const arr = JSON.parse(rawScores);
-            if(Array.isArray(arr)){
-              arr.forEach(function(r){
-                if(r && typeof r.frame_id==='number'){
-                  scoresMap.set(r.frame_id, { score: r.score||0, votes: r.votes||0 });
-                }
-              });
-            }
-          }catch(_){/* noop */}
-          draw();
-          setupControls();
-          return;
-        }
-
-        let list = [];
-        // Предыдущий снимок кадров, чтобы понять, появились ли новые кадры
-        let prevSnap = [];
-        try{
-          const rawPrev = localStorage.getItem(LS_SNAPSHOT(seriesId)) || 'null';
-          const jsPrev = JSON.parse(rawPrev);
-          if (Array.isArray(jsPrev)) prevSnap = jsPrev;
-        }catch(_){/* noop */}
-
-        if (hasDB()) { list = await readActiveFrames(); }
-        if (list && list.length) {
-          activeFrames = list;
-
-          // Определяем, появился ли хотя бы один новый кадр по сравнению с предыдущим снимком
-          let hasNewFrame = false;
-          try{
-            const prevIds = new Set(prevSnap.map(f => f.id));
-            for (const f of list) {
-              if (!prevIds.has(f.id)) { hasNewFrame = true; break; }
-            }
-          }catch(_){/* noop */}
-
-          const now = Date.now();
-          const endMs = getEndMs();
-          const stateNow = getState();
-          console.log('[kadry refresh] frames:', { prevCount: prevSnap.length, newCount: list.length, hasNewFrame, endMs, now, stateNow });
-
-          // Логика таймера голосования:
-          // 1) Если для серии ещё не было таймера (endMs === 0) — запускаем первый раунд на 30 минут.
-          // 2) Если таймер уже был и время истекло — НИЧЕГО не перезапускаем автоматически.
-          //    Раунд считается завершённым и остаётся замороженным до появления нового кадра
-          //    (см. обработчик new_frame в applySync) или явного действия администратора.
-          if (!endMs) {
-            const nowIso = new Date(now).toISOString();
-            const e = now + MAX_MS;
-            setState('active');
-            localStorage.setItem(K_ROUND(seriesId), nowIso);
-            localStorage.setItem(LS_ROUND_AT(seriesId), nowIso);
-            localStorage.setItem(K_END(seriesId), String(e));
-            localStorage.setItem(LS_END_AT(seriesId), String(e));
-            localStorage.setItem(K_CAP(seriesId), String(e));
-            localStorage.setItem(K_EXT_TS(seriesId), '0');
-          } else if (endMs <= now) {
-            // Время раунда вышло. Если состояние до сих пор "active", переводим его
-            // в "replay_frozen", чтобы страница не перезапускала таймер простым визитом пользователя.
-            if (stateNow === 'active') {
-              setState('replay_frozen');
-            }
-          } else if (hasNewFrame) {
-          // Здесь реализовано ПРОДЛЕНИЕ ТАЙМЕРА при появлении нового кадра.
-          // ВАЖНО: мы делаем это только если последнее сообщение kadry_broadcast
-          // действительно было new_frame для этой серии и не было "firstInRound".
-          let shouldExtend = false;
-          try {
-            if (lastBroadcastRaw) {
-              const lastMsg = JSON.parse(lastBroadcastRaw);
-              if (lastMsg && lastMsg.type === 'new_frame' && !lastMsg.firstInRound && String(lastMsg.seriesId) === String(seriesId)) {
-                shouldExtend = true;
-              }
-            }
-          } catch (_) {
-            shouldExtend = false;
-          }
-
-          if (shouldExtend && getState() === 'active') {
-            const nowMs = Date.now();
-            let curEnd = endMs;
-            const maxEndFromNow = nowMs + MAX_MS; // потолок: не больше 30 минут от текущего момента
-            let nextEnd = curEnd + EXT_MS;        // попытка удлинить ещё на 5 минут
-            if (nextEnd > maxEndFromNow) nextEnd = maxEndFromNow;
-            if (nextEnd > curEnd) {
-              localStorage.setItem(K_END(seriesId), String(nextEnd));
-              localStorage.setItem(LS_END_AT(seriesId), String(nextEnd));
-            }
-            console.log('[kadry refresh] extend by new frame', { curEnd, nextEnd, maxEndFromNow });
-          } else {
-            console.log('[kadry refresh] new frame detected but no timer extend (state or message mismatch)');
-          }
-        }
-
-          // Обновляем снимок активных кадров после всех вычислений,
-          // чтобы следующий refresh видел только НАСТОЯЩИЕ новые кадры.
-          // ВАЖНО: снимок кадров нужно обновлять ТОЛЬКО ПОСЛЕ обработки добавления кадра.
-          // Иначе hasNewFrame станет false, и таймер перестанет продлеваться.
-          localStorage.setItem(LS_SNAPSHOT(seriesId), JSON.stringify(list));
-        } else {
-          try {
-            const raw = localStorage.getItem(LS_SNAPSHOT(seriesId)) || 'null';
-            const snap = JSON.parse(raw);
-            if (Array.isArray(snap)) activeFrames = snap;
-          } catch (_) {}
-        }
-
-        scoresMap = await readScores(activeFrames.map(f => f.id));
-        draw();
-        setupControls();
-      }
-
-      function clearRoundTiming(){
-        try{
-          localStorage.removeItem(K_ROUND(seriesId));
-          localStorage.removeItem(LS_ROUND_AT(seriesId));
-          localStorage.removeItem(K_END(seriesId));
-          localStorage.removeItem(LS_END_AT(seriesId));
-          localStorage.removeItem(K_LAST(seriesId));
-          localStorage.removeItem(LS_LAST_SEEN(seriesId));
-          localStorage.removeItem(K_CAP(seriesId));
-          localStorage.removeItem(K_EXT_TS(seriesId));
-        }catch(_){ /* noop */ }
-      }
-
-      async function applySync(msg) {
-        // Подробные логи, чтобы видеть, что реально происходит при синхронизации
-        console.log('[kadry] applySync called', msg);
-
-        if (!msg) {
-          await refresh();
-          return;
-        }
-
-        const t = msg.type;
-        const now = Date.now();
-
-        if (t === 'new_frame') {
-          const st = getState();
-          const endMs = getEndMs();
-          console.log('[kadry] new_frame before', { st, endMs, now, seriesId, msgSeries: msg.seriesId });
-
-          // 1) Если раунд был завершён, не был инициализирован или стоял в переигровке —
-          // запускаем НОВЫЙ раунд с чистыми 30:00.
-          if (st !== 'active' || !endMs || endMs <= now) {
-            const nowIso = new Date(now).toISOString();
-            setState('active');
-            const e = now + MAX_MS;
-            localStorage.setItem(K_ROUND(seriesId), nowIso);
-            localStorage.setItem(LS_ROUND_AT(seriesId), nowIso);
-            localStorage.setItem(K_END(seriesId), String(e));
-            localStorage.setItem(LS_END_AT(seriesId), String(e));
-            localStorage.setItem(K_CAP(seriesId), String(e));
-            localStorage.setItem(K_EXT_TS(seriesId), '0');
-            console.log('[kadry] new_frame → start new round', { nowIso, e });
-          } else {
-            // 2) Идёт живое голосование. Здесь мы БОЛЬШЕ НЕ ПРОДЛЕВАЕМ таймер.
-            // Продление (+5 минут, но не более 30 мин) делается в refresh(),
-            // когда тот видит фактическое появление нового кадра.
-            console.log('[kadry] new_frame → will extend in refresh()');
-          }
-        } else if (t === 'unfreeze') {
-          console.log('[kadry] unfreeze', { seriesId });
-          // Явная разморозка без нового кадра — просто запускаем новый раунд на 30:00.
-          const nowIso = new Date(now).toISOString();
-          setState('active');
-          const e = now + MAX_MS;
-          localStorage.setItem(K_ROUND(seriesId), nowIso);
-          localStorage.setItem(LS_ROUND_AT(seriesId), nowIso);
-          localStorage.setItem(K_END(seriesId), String(e));
-          localStorage.setItem(LS_END_AT(seriesId), String(e));
-          localStorage.setItem(K_CAP(seriesId), String(e));
-          localStorage.setItem(K_EXT_TS(seriesId), '0');
-        }
-
-        await refresh();
-      }
-
-      // Простая шина для синхронизации через localStorage (editor.html шлёт события)
-      window.addEventListener('storage', function(ev){
-        if(!ev || ev.key !== 'kadry_broadcast') return;
-        try{
-          const msg = JSON.parse(ev.newValue || 'null');
-          if(!msg || Number(msg.seriesId) !== seriesId) return;
-          applySync(msg);
-        }catch(e){ console.warn('kadry_broadcast parse error', e); }
-      });
-
-      // Стартуем при загрузке DOM
-      document.addEventListener('DOMContentLoaded', function(){
-        if(!seriesId){
-          alert('Не указан параметр серии (?series=ID).');
-          return;
-        }
-        loadSeriesMeta().then(function(){
-          // Инициализируем lastBroadcastRaw текущим значением, чтобы старое сообщение
-          // new_frame (от прошлого открытия/добавления кадра) не запускало новый раунд
-          // сразу при заходе на страницу.
-          try{
-            lastBroadcastRaw = localStorage.getItem(BROADCAST_KEY) || null;
-          }catch(_){ lastBroadcastRaw = null; }
-
-          
-          startTimerLoop();
-          refresh();
-        });
-      });
-    })();
-  </script>
 </body>
 </html>

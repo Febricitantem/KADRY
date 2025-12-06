@@ -48,6 +48,15 @@
       align-items:center;
       gap:6px;
     }
+      
+.slider-value{
+  margin-left:4px;
+  font-size:12px;
+  color:#6b7280;
+  min-width:32px;
+  display:inline-block;
+  text-align:right;
+}
 
     .timer-badge {
       display:inline-block;
@@ -105,21 +114,33 @@
       height:auto;
       flex:1 1 auto;
     }
-    .color-preview{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      width:70px;
-      height:70px;
-      border-radius:999px;
-      border:3px solid rgba(15,23,42,0.8);
-      box-shadow:0 4px 16px rgba(15,23,42,0.35);
-      background:#000;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity 0.12s ease-out;
-    }
+   .color-preview{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:70px;
+  height:70px;
+  border-radius:999px;
+  border:3px solid rgba(15,23,42,0.8);
+  box-shadow:0 4px 16px rgba(15,23,42,0.35);
+  background:#000;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.12s ease-out;
+  z-index:9999;
+}
+body.eyedropper-active #canvasWrap{
+  cursor: crosshair;
+}
+/* при активной пипетке пузырь-превью выключаем,
+   чтобы не оставался “кружок от курсора” */
+body.eyedropper-active .color-preview{
+  opacity:0 !important;
+}
+
+
+
     .color-sidebar{
       width:260px;
       max-width:260px;
@@ -134,10 +155,39 @@
       box-shadow:0 1px 2px rgba(15, 23, 42, 0.05);
     }
     .color-wheel-wrap{
+  position:relative;          /* ← добавили */
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+
+
+        .eyedropper-btn{
+      position:absolute;
+      right:-10px;
+      top:50%;
+      transform:translateY(-50%);
+      width:32px;
+      height:32px;
+      border-radius:50%;
+      border:2px solid #111827;
+      background:#ffffff;
+      color:#111827;
+      font-size:18px;
+      line-height:1;
+      cursor:pointer;
       display:flex;
-      justify-content:center;
       align-items:center;
+      justify-content:center;
+      box-shadow:0 2px 6px rgba(15,23,42,0.15);
     }
+    .eyedropper-btn:hover{
+      background:#f3f4ff;
+    }
+
+
+
     #colorWheel{
       max-width:100%;
       height:auto;
@@ -250,6 +300,34 @@
     .card p{margin:8px 0 0 0;}
     .actions{display:flex; justify-content:flex-end; gap:10px; margin-top:12px}
     .danger{color:#ef4444}
+        .save-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .save-form label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .save-form input[type="text"],
+    .save-form textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .save-form textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
 
     body.time-expired #canvasWrap{pointer-events:none; filter:grayscale(.1);} /* блокировка рисования по таймеру */
   
@@ -356,72 +434,138 @@
 
     <main class="stage">
             <div class="topbar">
-        <input id="brushColor" name="brushColor" type="hidden" value="#000000">
-        <label>Толщина <input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8"></label>
-        <label>Прозрачность кисти <input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1"></label>
-        <label>Сглаживание <input id="brushSmooth" name="brushSmooth" type="range" min="0" max="1" step="0.1" value="0"></label>
-        <label>Инструмент
-          <select id="toolSel" name="toolSel">
-            <option value="brush">Кисть</option>
-            <option value="eraser">Ластик</option>
-            <option value="fill">Заливка</option>
-            <option value="select">Выделение</option>
-            <option value="zoom">Лупа</option>
-          </select>
-        </label>
-        <div id="timerContainer" class="topbar-timer" aria-live="polite"></div>
-        <button id="saveDrawBtn" class="btn primary">Сохранить</button>
-      </div>
+  <input id="brushColor" name="brushColor" type="hidden" value="#000000">
 
-      <div class="canvas-holder">
-        <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080, масштабируется в контейнер)">
-          <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+  <label>
+    Толщина
+    <span id="brushSizeValue" class="slider-value">
+      0%
+    </span>
+    <input
+      id="brushSize"
+      name="brushSize"
+      type="range"
+      min="1"
+      max="60"
+      value="8"
+    >
+  </label>
+
+  <label>
+    Прозрачность кисти
+    <span id="brushAlphaValue" class="slider-value">
+      100%
+    </span>
+    <input
+      id="brushAlpha"
+      name="brushAlpha"
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      value="1"
+    >
+  </label>
+
+  <label>
+    Сглаживание
+    <span id="brushSmoothValue" class="slider-value">
+      0%
+    </span>
+    <input
+      id="brushSmooth"
+      name="brushSmooth"
+      type="range"
+      min="0"
+      max="100"
+      step="1"
+      value="0"
+    >
+  </label>
+
+  <label>
+    Инструмент
+    <select id="toolSel" name="toolSel">
+      <option value="brush">Кисть</option>
+      <option value="eraser">Ластик</option>
+      <option value="fill">Заливка</option>
+      <option value="select">Выделение</option>
+      <option value="zoom">Лупа</option>
+      <option value="eyedropper">Пипетка</option>
+    </select>
+  </label>
+
+  <div id="timerContainer" class="topbar-timer" aria-live="polite"></div>
+  <button id="saveDrawBtn" class="btn primary">Сохранить</button>
+</div>
+
+
+<div class="canvas-holder">
+
+  <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080)">
+    <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+  </div>
+
+  <aside class="color-sidebar" aria-label="Палитра цветов">
+    <div class="color-wheel-wrap">
+      <canvas id="colorWheel" width="220" height="220"></canvas>
+
+      <!-- Кнопка пипетки остаётся внутри wrap, чтобы draw.js её увидел -->
+      <button
+        id="eyedropperBtn"
+        class="eyedropper-btn"
+        type="button"
+        title="Пипетка (горячие клавиши P / З)"
+      >
+        🧪
+      </button>
+    </div>
+
+
+
+    <div class="color-sliders">
+      <div class="color-slider-row">
+        <span>H</span>
+        <div class="color-slider-track" data-kind="h">
+          <input id="hueSlider" type="range" min="0" max="360" value="0">
         </div>
+      </div>
+      <div class="color-slider-row">
+        <span>S</span>
+        <div class="color-slider-track" data-kind="s">
+          <input id="satSlider" type="range" min="0" max="100" value="100">
+        </div>
+      </div>
+      <div class="color-slider-row">
+        <span>B</span>
+        <div class="color-slider-track" data-kind="b">
+          <input id="valSlider" type="range" min="0" max="100" value="100">
+        </div>
+      </div>
+    </div>
 
-        <aside class="color-sidebar" aria-label="Палитра цветов">
-          <div class="color-wheel-wrap">
-            <canvas id="colorWheel" width="220" height="220"></canvas>
-          </div>
+    <div class="color-history" aria-label="История цветов">
+      <div class="color-history-col">
+        <button class="color-history-swatch" data-index="0"></button>
+        <button class="color-history-swatch" data-index="1"></button>
+        <button class="color-history-swatch" data-index="2"></button>
+        <button class="color-history-swatch" data-index="3"></button>
+        <button class="color-history-swatch" data-index="4"></button>
+      </div>
+      <div class="color-history-col">
+        <button class="color-history-swatch" data-index="5"></button>
+        <button class="color-history-swatch" data-index="6"></button>
+        <button class="color-history-swatch" data-index="7"></button>
+        <button class="color-history-swatch" data-index="8"></button>
+        <button class="color-history-swatch" data-index="9"></button>
+      </div>
+    </div>
 
-          <div class="color-sliders">
-            <div class="color-slider-row">
-              <span>H</span>
-              <div class="color-slider-track" data-kind="h">
-                <input id="hueSlider" type="range" min="0" max="360" value="0">
-              </div>
-            </div>
-            <div class="color-slider-row">
-              <span>S</span>
-              <div class="color-slider-track" data-kind="s">
-                <input id="satSlider" type="range" min="0" max="100" value="100">
-              </div>
-            </div>
-            <div class="color-slider-row">
-              <span>B</span>
-              <div class="color-slider-track" data-kind="b">
-                <input id="valSlider" type="range" min="0" max="100" value="100">
-              </div>
-            </div>
-          </div>
+  </aside>
 
-          <div class="color-history" aria-label="История цветов">
-            <div class="color-history-col">
-              <button class="color-history-swatch" data-index="0"></button>
-              <button class="color-history-swatch" data-index="1"></button>
-              <button class="color-history-swatch" data-index="2"></button>
-              <button class="color-history-swatch" data-index="3"></button>
-              <button class="color-history-swatch" data-index="4"></button>
-            </div>
-            <div class="color-history-col">
-              <button class="color-history-swatch" data-index="5"></button>
-              <button class="color-history-swatch" data-index="6"></button>
-              <button class="color-history-swatch" data-index="7"></button>
-              <button class="color-history-swatch" data-index="8"></button>
-              <button class="color-history-swatch" data-index="9"></button>
-            </div>
-          </div>
-        </aside>
-      </div><div class="bottombar">
+</div>
+
+            <div class="bottombar">
         <button id="confirmSelBtn" class="btn add" title="Применить выделение" style="display:none; margin-right:24px;">✔</button>
         <button id="undoBtn" class="btn" title="Отмена">⟵</button>
         <button id="redoBtn" class="btn" title="Повтор">⟶</button>
@@ -434,15 +578,32 @@
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
       <button class="x" id="saveClose" title="Свернуть окно">✕</button>
       <h3 id="saveTitle">Сохранение серии</h3>
-      <label for="seriesTitle">Название серии</label>
-      <input id="seriesTitle" name="seriesTitle" type="text" placeholder="Например: Глава 1"/>
-      <label for="seriesDesc">Описание</label>
-      <textarea id="seriesDesc" name="seriesDesc" placeholder="Коротко опишите идею серии (необязательно)"></textarea>
+
+      <div class="save-form">
+        <label for="seriesTitle">Название серии</label>
+        <input
+          id="seriesTitle"
+          name="seriesTitle"
+          type="text"
+          placeholder="До 20 символов"
+          maxlength="20"
+        />
+
+        <label for="seriesDesc">Описание</label>
+        <textarea
+          id="seriesDesc"
+          name="seriesDesc"
+          placeholder="Коротко опишите идею серии (необязательно)"
+          rows="4"
+        ></textarea>
+      </div>
+
       <div class="actions">
         <button id="doSave" class="btn primary">Сохранить</button>
       </div>
     </div>
   </div>
+
 
   <div id="timeUpOverlay" class="overlay" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="timeUpTitle">
@@ -711,13 +872,20 @@ window.addEventListener('admin:enabled', function () {
           alert('Нет данных холста для сохранения');
           return;
         }
-        const title = (inpTitle.value || '').trim();
-        if (!title) {
-          alert('Введите название серии');
-          inpTitle.focus();
-          return;
-        }
-        const desc = (inpDesc.value || '').trim();
+        const rawTitle = (inpTitle.value || '').trim();
+if (!rawTitle) {
+  alert('Введите название серии');
+  inpTitle.focus();
+  return;
+}
+if (rawTitle.length > 20) {
+  alert('Название слишком длинное (максимум 20 символов). Сократите его.');
+  inpTitle.focus();
+  return;
+}
+const title = rawTitle;
+const desc = (inpDesc.value || '').trim();
+
 
         const blob = exporter
           ? await exporter()
@@ -810,7 +978,7 @@ window.addEventListener('admin:enabled', function () {
       }
     }
 
-    window.saveFrameToSeries = async function (seriesId, supabaseClient) {
+    window.saveFrameToSeries = async function (seriesId, supabase) {
       if (saving) return;
       setSaving(true);
       try {
@@ -833,12 +1001,12 @@ window.addEventListener('admin:enabled', function () {
 
         const rand = Math.random().toString(36).slice(2, 8);
         let fileName = `candidates/${Date.now()}_${rand}.png`;
-        let up = await supabaseClient.storage
+        let up = await supabase.storage
           .from('Frames')
           .upload(fileName, file, { contentType: 'image/png', cacheControl: '3600', upsert: false });
         if (up.error) {
           const alt = `${Date.now()}_${rand}_${Math.floor(performance.now())}.png`;
-          let up2 = await supabaseClient.storage
+          let up2 = await supabase.storage
             .from('Frames')
             .upload(alt, file, { contentType: 'image/png', cacheControl: '3600', upsert: true });
           if (up2.error) {
@@ -847,7 +1015,7 @@ window.addEventListener('admin:enabled', function () {
           }
           fileName = alt;
         }
-        const { data: pub } = supabaseClient.storage.from('Frames').getPublicUrl(fileName);
+        const { data: pub } = supabase.storage.from('Frames').getPublicUrl(fileName);
         const imageUrl = (pub && (pub.publicUrl || pub.publicURL)) || null;
         if (!imageUrl) {
           alert('Не удалось получить URL изображения');
@@ -858,7 +1026,7 @@ window.addEventListener('admin:enabled', function () {
 
         let exCount = 0;
         try {
-          const c = await supabaseClient
+          const c = await supabase
             .from('frames')
             .select('id', { count: 'exact', head: true })
             .eq('series_id', seriesId)
@@ -870,30 +1038,78 @@ window.addEventListener('admin:enabled', function () {
         }
         const isFirstInRound = exCount === 0;
 
-        let insertedId = null;
-        let insErr = null;
-        try {
-          const ins = await supabaseClient
-            .from('frames')
-            .insert([
-              {
-                series_id: seriesId,
-                image_url: imageUrl,
-                committed: false,
-                in_vote: true,
-                history: false,
-                order_index: nextOrder,
-              },
-            ])
-            .select('id')
-            .single();
-          if (ins.error) insErr = ins.error;
-          else insertedId = ins.data?.id || null;
-        } catch (e) {
-          insErr = e;
-        }
-        if (insErr) {
-          const probe = await supabaseClient
+       let insertedId = null;
+let insErr = null;
+try {
+  const ins = await supabase
+    .from('frames')
+    .insert([
+      {
+        series_id: seriesId,
+        image_url: imageUrl,
+        committed: false,
+        in_vote: true,
+        history: false,
+        order_index: nextOrder,
+      },
+    ])
+    .select('id')
+    .single();
+  if (ins.error) insErr = ins.error;
+  else insertedId = ins.data?.id || null;
+} catch (e) {
+  insErr = e;
+}
+
+// 🔥 Продлеваем раунд в SQL
+let rpcOk = false;
+let fnError = null;
+
+try {
+  const rpcRes = await supabase.rpc(
+    'voting_extend_round',
+    { p_series_id: seriesId }
+  );
+
+  fnError = rpcRes.error;
+
+  if (fnError) {
+    console.error('RPC voting_extend_round error:', fnError);
+  } else {
+    rpcOk = true;
+  }
+
+} catch (e) {
+  console.error('RPC voting_extend_round failed:', e);
+  fnError = e;
+}
+
+// 🔔 Сообщаем вкладкам голосования, что раунд обновлён
+try {
+  const bc = new BroadcastChannel("kadry_vote");
+  bc.postMessage({
+    type: "round_updated",
+    seriesId: String(seriesId),
+    ok: rpcOk,
+    ts: Date.now()
+  });
+  bc.close();
+} catch (e) {
+  console.warn("broadcast failed", e);
+}
+
+// Если ошибка — уведомим админа
+if (fnError) {
+  alert(
+    'Ошибка продления раунда: ' +
+      (fnError.message || fnError.code || 'см. консоль')
+  );
+}
+
+
+
+if (insErr) {
+          const probe = await supabase
             .from('frames')
             .select('id')
             .eq('series_id', seriesId)
@@ -925,7 +1141,9 @@ window.addEventListener('admin:enabled', function () {
         postSync(seriesId, evt);
 
         await new Promise((r) => setTimeout(r, 150));
-        location.replace('vote.html?series=' + seriesId + '&engine=on');
+        await new Promise(r => setTimeout(r, 150));
+location.replace('vote.html?series=' + seriesId);
+
       } catch (e) {
         console.error(e);
         alert('Ошибка сохранения кадра');
@@ -1189,6 +1407,175 @@ window.addEventListener('admin:enabled', function () {
         location.replace('index.html');
       };
     }
+       // === ПИПЕТКА =====================================================
+    let eyedropperActive = false;
+    let toolSelectEl = null; // селект инструментов
+
+ function setEyedropperActive(on) {
+  eyedropperActive = !!on;
+  window.__kadryEyedropperOn = eyedropperActive;
+  document.body.classList.toggle('eyedropper-active', eyedropperActive);
+
+  // 1) гасим наш центральный превью-кружок
+  try {
+    const preview = document.getElementById('colorPreview');
+    if (preview) preview.style.opacity = '0';
+
+    if (window.drawAPI && typeof window.drawAPI.setBrushCursorVisible === 'function') {
+      window.drawAPI.setBrushCursorVisible(!eyedropperActive);
+    }
+  } catch (e) {}
+
+  // 2) ГРУБЫЙ ХАК: ищем все маленькие круглые div'ы на странице
+  //    и временно прячем их во время работы пипетки.
+  try {
+    const divs = Array.from(document.querySelectorAll('div'));
+
+    divs.forEach((el) => {
+      // colorPreview мы уже потушили отдельно
+      if (el.id === 'colorPreview') return;
+
+      const rect = el.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      // отсекаем большие блоки — нас интересуют мелкие кружочки
+      if (rect.width > 120 || rect.height > 120) return;
+
+      const cs = getComputedStyle(el);
+      const br = cs.borderRadius || '';
+      const bw = parseFloat(cs.borderWidth || '0');
+
+      if (!br || bw === 0) return; // без рамки и радиуса нам неинтересно
+
+      const sizeMin = Math.min(rect.width, rect.height);
+      const numericBR = parseFloat(br) || 0;
+
+      // приблизительно считаем, что это круг
+      const isCircle =
+        br.includes('%') ||
+        numericBR >= sizeMin / 2 - 2;
+
+      if (!isCircle) return;
+
+      // собственно скрытие/возврат
+      if (eyedropperActive) {
+        if (!el.dataset._prevCursorVis) {
+          el.dataset._prevCursorVis = el.style.visibility || '';
+        }
+        el.style.visibility = 'hidden';
+      } else if ('_prevCursorVis' in el.dataset) {
+        el.style.visibility = el.dataset._prevCursorVis;
+        delete el.dataset._prevCursorVis;
+      }
+    });
+  } catch (e) {
+    console.warn('hide brush-like cursors failed', e);
+  }
+
+  // 3) синхронизируем селект инструментов
+  if (toolSelectEl) {
+    if (eyedropperActive) {
+      // включили пипетку как инструмент
+      toolSelectEl.value = 'eyedropper';
+    } else if (toolSelectEl.value === 'eyedropper') {
+      // выходим из пипетки → возвращаемся на кисть
+      toolSelectEl.value = 'brush';
+      toolSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+}
+
+
+
+
+
+    function applyPickedColor(hex) {
+      try {
+        const hidden = document.getElementById('brushColor');
+        if (hidden) {
+          hidden.value = hex;
+          hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        if (window.drawAPI && typeof window.drawAPI.setBrushColorFromHex === 'function') {
+          window.drawAPI.setBrushColorFromHex(hex);
+        }
+
+        // сразу кладём цвет из пипетки в историю
+        pushEyedroppedColorToHistory(hex);
+      } catch (e) {
+        console.warn('eyedropper apply color failed', e);
+      }
+    }
+
+    // Добавляем выбранный пипеткой цвет в блоки истории
+    function pushEyedroppedColorToHistory(hex) {
+      try {
+        const swatches = Array.from(document.querySelectorAll('.color-history-swatch'));
+        if (!swatches.length) return;
+
+        let norm = (hex || '').toLowerCase();
+        if (!norm) return;
+        if (!norm.startsWith('#')) norm = '#' + norm;
+        // простой чек, чтобы не пихать мусор
+        if (!/^#[0-9a-f]{6}$/.test(norm)) return;
+
+        // текущие цвета из data-color
+        const existing = swatches
+          .map(btn => (btn.dataset.color || '').toLowerCase())
+          .filter(Boolean);
+
+        // новый список: новый цвет + предыдущие, без дублей
+        const ordered = [norm, ...existing.filter(c => c && c !== norm)]
+          .slice(0, swatches.length);
+
+        ordered.forEach((c, idx) => {
+          const btn = swatches[idx];
+          if (!btn) return;
+          btn.dataset.color = c;
+          btn.style.background = c;
+        });
+      } catch (e) {
+        console.warn('pushEyedroppedColorToHistory failed', e);
+      }
+    }
+
+
+    function pickColorAtPoint(clientX, clientY) {
+      const wrap = document.getElementById('canvasWrap');
+      if (!wrap) return;
+
+      const cv =
+        wrap.querySelector('canvas:last-of-type') ||
+        wrap.querySelector('canvas');
+      if (!cv) return;
+
+      const rect = cv.getBoundingClientRect();
+      const x = Math.floor((clientX - rect.left) * cv.width / rect.width);
+      const y = Math.floor((clientY - rect.top) * cv.height / rect.height);
+      if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return;
+
+      const ctx = cv.getContext('2d');
+      let data;
+      try {
+        data = ctx.getImageData(x, y, 1, 1).data;
+      } catch (e) {
+        console.warn('getImageData failed', e);
+        return;
+      }
+
+      const r = data[0], g = data[1], b = data[2], a = data[3] / 255;
+      if (a === 0) {
+        // пиксель полностью прозрачный — просто игнорируем
+        return;
+      }
+
+      const hex =
+        '#' +
+        [r, g, b]
+          .map(v => v.toString(16).padStart(2, '0'))
+          .join('');
+      applyPickedColor(hex);
+    }
 
     const adminBadge = document.getElementById('adminBadge');
     const admin10sBtn = document.getElementById('admin10sBtn');
@@ -1251,10 +1638,75 @@ window.addEventListener('admin:enabled', function () {
           window.maybeShowIntroModal();
         } catch (_) {}
       }
+
+          // --- инициализация пипетки ---
+      const eyedropBtn = document.getElementById('eyedropperBtn');
+      const canvasWrap = document.getElementById('canvasWrap');
+      toolSelectEl = document.getElementById('toolSel');
+
+      // Кнопка возле палитры — просто переключатель инструмента
+      if (eyedropBtn) {
+        eyedropBtn.addEventListener('click', function () {
+          if (eyedropperActive) {
+            setEyedropperActive(false);
+          } else {
+            setEyedropperActive(true);
+          }
+        });
+      }
+
+      // Если в селекте выбирают "Пипетка" — включаем режим, иначе выключаем
+      if (toolSelectEl) {
+        toolSelectEl.addEventListener('change', function () {
+          if (toolSelectEl.value === 'eyedropper') {
+            setEyedropperActive(true);
+          } else {
+            setEyedropperActive(false);
+          }
+        });
+      }
+
+      // выбор цвета кликом по холсту
+      if (canvasWrap) {
+        canvasWrap.addEventListener('pointerdown', function (e) {
+          if (!eyedropperActive) return;
+          // Блокируем рисование под пипеткой
+          e.preventDefault();
+          e.stopPropagation();
+          pickColorAtPoint(e.clientX, e.clientY);
+        }, true); // важен третий аргумент: слушаем в capture-фазе
+      }
+
+      // горячие клавиши:
+      // P / З — включить пипетку
+      // B / И — вернуться на кисть
+      // Esc — просто выключить пипетку
+      document.addEventListener('keydown', function (e) {
+        const key = e.key;
+        const t = e.target;
+        const tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea') return;
+
+        if (key === 'p' || key === 'P' || key === 'з' || key === 'З') {
+          setEyedropperActive(true);
+        } else if (key === 'b' || key === 'B' || key === 'и' || key === 'И') {
+          if (toolSelectEl) {
+            toolSelectEl.value = 'brush';
+            toolSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          setEyedropperActive(false);
+        } else if (key === 'Escape') {
+          setEyedropperActive(false);
+        }
+      });
+
     }
+
 
     startAll();
   })();
+
+
   </script>
 </body>
 </html>
