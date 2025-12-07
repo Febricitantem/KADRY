@@ -1469,17 +1469,21 @@ if (e.pointerType === 'pen' && e.button === 2) {
     document.addEventListener('keydown', function (e) {
       if (isTimeExpired()) return;
 
-      // Не трогаем ввод в полях
-      if (
-        e.target &&
-        ('value' in e.target) &&
-        (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')
-      ) {
-        return;
-      }
+  // Не трогаем ТОЛЬКО текстовые поля / textarea,
+  // но даём работать хоткеям, даже если фокус на слайдере (range)
+  const target = e.target;
+  const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
 
-      var code = e.code || '';
-      var key = (e.key || '').toLowerCase();
+  if (tag === 'TEXTAREA') return;
+
+  if (tag === 'INPUT') {
+    const type = (target.type || '').toLowerCase();
+    const textLike = ['text', 'search', 'email', 'url', 'password', 'number'];
+    if (textLike.indexOf(type) !== -1) return;
+  }
+
+  var code = e.code || '';
+  var key = (e.key || '').toLowerCase();
 
       // --- инструменты ---
 
@@ -1597,12 +1601,22 @@ if (e.pointerType === 'pen' && e.button === 2) {
     // ---- хоткеи undo/redo и copy/paste (работают в обеих раскладках)
     document.addEventListener('keydown', function (e) {
       if (isTimeExpired()) return;
-      var target = e.target;
-      var tag = target && target.tagName ? target.tagName.toUpperCase() : '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (target && target.isContentEditable)) return;
+  const target = e.target;
+  const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
 
-      var code = e.code || '';
-      var key = (e.key || '').toLowerCase();
+  // textarea и contentEditable — не трогаем, там нужно печатать
+  if (tag === 'TEXTAREA' || (target && target.isContentEditable)) return;
+
+  // input: блокируем только текстовые типы, но НЕ range/checkbox/button и т.п.
+  if (tag === 'INPUT') {
+    const type = (target.type || '').toLowerCase();
+    const textLike = ['text', 'search', 'email', 'url', 'password', 'number'];
+    if (textLike.indexOf(type) !== -1) return;
+  }
+
+  var code = e.code || '';
+  var key = (e.key || '').toLowerCase();
+
 
       // UNDO: Z / Я (с Ctrl или без, но без Alt)
       if (!e.altKey && (code === 'KeyZ' || key === 'z' || key === 'я')) {
