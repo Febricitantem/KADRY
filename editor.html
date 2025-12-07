@@ -365,6 +365,160 @@ body.eyedropper-active .color-preview{
       font-size: 14px;
       color: #cbd5f5;
     }
+    /* === Справка: плавающая кнопка и компактное окно === */
+
+/* Кнопка "Справка" всегда в правом нижнем углу экрана */
+.help-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9000; /* ниже модалок (.overlay z-index:10000) */
+  box-shadow: 0 4px 12px rgba(15,23,42,0.35);
+}
+
+/* Специальная карточка для справки */
+/* Специальная карточка для справки */
+.help-card {
+  max-width: min(760px, 96vw);
+  max-height: min(520px, 90vh);
+  display: grid;
+  grid-template-columns: 3fr 1.2fr; /* текст + колонка под котов */
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px 16px;
+  overflow: hidden; /* ничего не вылезает за рамку */
+}
+
+/* Заголовок и подзаголовок */
+.help-title {
+  grid-column: 1 / 3;
+  text-align: center;
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.help-subtitle {
+  grid-column: 1 / 3;
+  text-align: center;
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Внутреннее содержимое справки (левая часть с текстом) */
+.help-content {
+  grid-column: 1 / 2;
+  grid-row: 3 / 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0; /* важно для корректного скролла внутри */
+}
+
+/* Прокручиваемая область с текстом */
+.help-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 0;
+  min-height: 0;
+
+  /* прячем полоску прокрутки, но оставляем сам скролл */
+  scrollbar-width: none;          /* Firefox */
+}
+.help-scroll::-webkit-scrollbar { /* Chrome, Edge, Safari */
+  width: 0;
+  height: 0;
+}
+
+
+/* Страницы справки (переключаются кнопками) */
+.help-page {
+  display: none;
+}
+.help-page.active {
+  display: block;
+}
+
+/* Навигация по страницам */
+.help-pager {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.help-pager button {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f9fafb;
+  cursor: pointer;
+}
+.help-pager button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Правая колонка под котиков */
+.help-side {
+  grid-column: 2 / 3;
+  grid-row: 3 / 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding-right: 4px;
+  padding-bottom: 4px;
+  pointer-events: none;
+}
+
+/* Кот на первой странице */
+.help-cat {
+  max-width: 100%;
+  height: auto;
+  display: none; /* по умолчанию спрятаны, включаем в JS */
+}
+
+/* Кот на последней странице (правый нижний угол) */
+.help-cat-secondary {
+  max-width: 100%;
+  height: auto;
+  margin-top: auto;
+  display: none;
+}
+
+/* Адаптация для узких экранов */
+@media (max-width: 640px) {
+  .help-card {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto auto;
+    max-height: min(480px, 90vh);
+  }
+
+  .help-content {
+    grid-column: 1 / 2;
+    grid-row: 3 / 5;
+  }
+
+  .help-side {
+    grid-column: 1 / 2;
+    grid-row: 5 / 6;
+    flex-direction: row;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .help-cat,
+  .help-cat-secondary {
+    max-width: 120px;
+    opacity: 0.85;
+  }
+}
+
+
 </style>
 
   <!-- CDN Supabase -->
@@ -565,12 +719,39 @@ body.eyedropper-active .color-preview{
 
 </div>
 
-            <div class="bottombar">
-        <button id="confirmSelBtn" class="btn add" title="Применить выделение" style="display:none; margin-right:24px;">✔</button>
+      <div class="bottombar">
+        <button
+          id="confirmSelBtn"
+          class="btn add"
+          title="Применить выделение"
+          style="display:none; margin-right:24px;"
+        >
+          ✔
+        </button>
+
         <button id="undoBtn" class="btn" title="Отмена">⟵</button>
         <button id="redoBtn" class="btn" title="Повтор">⟶</button>
-        <button id="cancelSelBtn" class="btn" title="Отменить изменения выделения" style="display:none; margin-left:24px; color:#ef4444;">✖</button>
+
+              <button
+          id="helpBtn"
+          class="btn help-fab"
+          type="button"
+          title="Справка по горячим клавишам и таймеру"
+        >
+          Справка
+        </button>
+
+
+        <button
+          id="cancelSelBtn"
+          class="btn"
+          title="Отменить изменения выделения"
+          style="display:none; margin-left:24px; color:#ef4444;"
+        >
+          ✖
+        </button>
       </div>
+
     </main>
   </div>
 
@@ -626,6 +807,137 @@ body.eyedropper-active .color-preview{
       </div>
     </div>
   </div>
+  <div id="helpOverlay" class="overlay" aria-hidden="true">
+    <div class="card help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="x" id="helpClose" title="Закрыть справку">✕</button>
+
+      <h3 id="helpTitle" class="help-title">СПРАВКА</h3>
+      <p class="help-subtitle">
+        надеюсь, вы не запутаетесь в правилах, как наш котик!
+      </p>
+
+      <div class="help-content">
+        <div class="help-scroll">
+          <!-- Страница 1 — инструменты и горячие клавиши -->
+          <div class="help-page" data-page="1">
+            <p><strong>Горячие клавиши</strong></p>
+            <p>Клавиши работают и в английской, и в русской раскладке.</p>
+
+            <p><strong>Инструменты</strong></p>
+            <ul>
+              <li><b>B / И</b> — кисть.</li>
+              <li><b>E / У</b> — ластик.</li>
+              <li><b>P / З</b> — пипетка (взять цвет с холста).</li>
+              <li><b>Выделение</b> выбирается в списке «Инструмент».</li>
+              <li><b>Лупа</b> — инструмент масштабирования.</li>
+            </ul>
+
+            <p><strong>Размер и прозрачность кисти</strong></p>
+            <ul>
+              <li><b>[ / Х</b> — уменьшить толщину кисти.</li>
+              <li><b>] / Ъ</b> — увеличить толщину кисти.</li>
+              <li><b>=</b> — сделать кисть более плотной (увеличить непрозрачность).</li>
+              <li><b>-</b> — сделать кисть более прозрачной.</li>
+            </ul>
+
+            <p><strong>Сглаживание</strong></p>
+            <p>Ползунок «Сглаживание» управляет плавностью линий: слева — почти пиксельно, справа — максимально плавные линии.</p>
+          </div>
+
+          <!-- Страница 2 — выделение, история и буфер -->
+          <div class="help-page" data-page="2">
+            <p><strong>Выделение</strong></p>
+            <ul>
+              <li>Инструмент <b>«Выделение»</b> — обводим область контурами.</li>
+              <li>После отпускания кнопки мыши выделенный фрагмент «отрывается» от слоя и становится отдельным объектом.</li>
+              <li>Двигать и растягивать его можно за рамку и за четыре квадратика по углам.</li>
+              <li><b>ПКМ</b> в режиме «Выделение» — отмена выделения и возврат рисунка в исходное состояние.</li>
+              <li>Кнопки <b>✔</b> и <b>✖</b> снизу — применить / отменить изменения выделения.</li>
+            </ul>
+
+            <p><strong>История действий</strong></p>
+            <ul>
+              <li><b>Z / Я</b> — шаг назад (Undo).</li>
+              <li><b>A / Ф</b> — шаг вперёд (Redo).</li>
+            </ul>
+
+            <p><strong>Буфер обмена (для выделения)</strong></p>
+            <ul>
+              <li><b>C / С</b> — скопировать выделенную область.</li>
+              <li><b>V / М</b> — вставить скопированную область под курсор.</li>
+              <li>С референс-слоя копирование запрещено: его можно двигать, но нельзя дублировать в кадр.</li>
+            </ul>
+          </div>
+
+          <!-- Страница 3 — пипетка, зум и таймер -->
+          <div class="help-page" data-page="3">
+            <p><strong>Пипетка</strong></p>
+            <ul>
+              <li><b>P / З</b> — включить пипетку.</li>
+              <li>Щелчок по холсту в режиме пипетки — взять цвет под курсором.</li>
+              <li><b>B / И</b> — вернуться на кисть.</li>
+              <li><b>Esc</b> — выключить пипетку и закрыть справку (если она открыта).</li>
+            </ul>
+
+            <p><strong>Масштаб (лупа)</strong></p>
+            <ul>
+              <li>Инструмент <b>«Лупа»</b> выбирается в списке «Инструмент».</li>
+              <li><b>Колёсико мыши</b> в режиме лупы — приблизить / отдалить холст.</li>
+              <li><b>↑</b> (стрелка вверх) — увеличить масштаб.</li>
+              <li><b>↓</b> (стрелка вниз) — уменьшить масштаб.</li>
+              <li>Зажатая ЛКМ в режиме лупы — перетаскивание (панорамирование холста).</li>
+            </ul>
+
+            <hr>
+
+            <p><strong>Ограничение по времени</strong></p>
+            <p>
+              В режиме <b>создания новой серии</b> таймера нет — можно рисовать сколько угодно
+              и сохранить результат в любой момент.
+            </p>
+            <p>
+              В режиме <b>продолжения серии</b> (когда вы пришли из голосования) сверху справа
+              показывается таймер:
+            </p>
+            <ul>
+              <li>Максимальное время рисования — <b>10 минут</b>.</li>
+              <li>Если до конца голосования осталось меньше времени, таймер будет короче, чтобы оставить запас на сохранение и работу сервера.</li>
+              <li>Когда таймер доходит до нуля, рисование блокируется — появляется окно с предложением сохранить или удалить кадр.</li>
+              <li>На решение есть ещё немного времени; если ничего не нажать, кадр удалится автоматически.</li>
+            </ul>
+
+            <p><strong>Вот и разобрались, приятной игры!</strong></p>
+          </div>
+        </div>
+
+        <!-- Навигация по страницам -->
+        <div class="help-pager">
+          <button id="helpPrev" type="button">‹ Назад</button>
+          <span id="helpPageLabel">1 / 3</span>
+          <button id="helpNext" type="button">Вперёд ›</button>
+        </div>
+      </div>
+
+      <!-- Правая колонка с котами -->
+      <div class="help-side">
+        <img
+          src="KOT1.png"
+          alt="Кот, запутавшийся в киноленте и правилах"
+          id="helpCatPrimary"
+          class="help-cat"
+        />
+        <img
+          src="KOT2.png"
+          alt="Кот, запутавшийся ещё сильнее, но довольный"
+          id="helpCatSecondary"
+          class="help-cat-secondary"
+        />
+      </div>
+    </div>
+  </div>
+
+
+
 
   <script>
   (function () {
@@ -833,12 +1145,100 @@ window.addEventListener('admin:enabled', function () {
     const btnDoSave = document.getElementById('doSave');
     const inpTitle = document.getElementById('seriesTitle');
     const inpDesc = document.getElementById('seriesDesc');
+        // Элементы справки
+    const helpOverlay = document.getElementById('helpOverlay');
+    const helpBtn = document.getElementById('helpBtn');
+    const helpClose = document.getElementById('helpClose');
+        // Страницы справки
+    let resetHelpPages = null;
 
-    function showOverlay(el) {
+    function initHelpPaging() {
+      if (!helpOverlay) return;
+
+      const pages = Array.from(helpOverlay.querySelectorAll('.help-page'));
+      if (!pages.length) return;
+
+      const prevBtn = document.getElementById('helpPrev');
+      const nextBtn = document.getElementById('helpNext');
+      const pageLabel = document.getElementById('helpPageLabel');
+      const scrollBox = helpOverlay.querySelector('.help-scroll');
+      let current = 0;
+
+      function clampIndex(v) {
+        return Math.max(0, Math.min(pages.length - 1, v));
+      }
+
+     function apply(index) {
+  current = clampIndex(index);
+  pages.forEach((el, i) => {
+    el.classList.toggle('active', i === current);
+  });
+
+  if (pageLabel) {
+    pageLabel.textContent = (current + 1) + ' / ' + pages.length;
+  }
+  if (prevBtn) prevBtn.disabled = current === 0;
+  if (nextBtn) nextBtn.disabled = current === pages.length - 1;
+  if (scrollBox) scrollBox.scrollTop = 0;
+
+  // переключение котиков
+  try {
+    const cat1 = document.getElementById('helpCatPrimary');
+    const cat2 = document.getElementById('helpCatSecondary');
+    if (cat1 && cat2) {
+      if (current === 0) {
+        // первая страница: только KOT1
+        cat1.style.display = 'block';
+        cat2.style.display = 'none';
+      } else if (current === pages.length - 1) {
+        // последняя страница: только KOT2
+        cat1.style.display = 'none';
+        cat2.style.display = 'block';
+      } else {
+        // промежуточные страницы: без котиков
+        cat1.style.display = 'none';
+        cat2.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    console.warn('help cats toggle failed', e);
+  }
+}
+
+
+      if (prevBtn) {
+        prevBtn.addEventListener('click', function () {
+          apply(current - 1);
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener('click', function () {
+          apply(current + 1);
+        });
+      }
+
+      // функция, которую вызовем при каждом открытии справки
+      resetHelpPages = function () {
+        apply(0);
+      };
+
+      // первичная инициализация
+      apply(0);
+    }
+
+
+
+      function showOverlay(el) {
       el.classList.add('show');
       el.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
+
+      // если открываем именно справку — сбрасываем на первую страницу
+      if (el === helpOverlay && typeof resetHelpPages === 'function') {
+        resetHelpPages();
+      }
     }
+
     function hideOverlay(el) {
       el.classList.remove('show');
       el.setAttribute('aria-hidden', 'true');
@@ -956,6 +1356,19 @@ const desc = (inpDesc.value || '').trim();
       }
     }
     btnDoSave.addEventListener('click', saveNewSeries);
+        // Открытие / закрытие справки
+    if (helpBtn && helpOverlay) {
+      helpBtn.addEventListener('click', function () {
+        showOverlay(helpOverlay);
+      });
+    }
+
+    if (helpClose && helpOverlay) {
+      helpClose.addEventListener('click', function () {
+        hideOverlay(helpOverlay);
+      });
+    }
+
 
     async function getNextOrderIndex(seriesId) {
       try {
@@ -1680,7 +2093,7 @@ location.replace('vote.html?series=' + seriesId);
       // горячие клавиши:
       // P / З — включить пипетку
       // B / И — вернуться на кисть
-      // Esc — просто выключить пипетку
+      // Esc — выключить пипетку и закрыть открытые окна справки
       document.addEventListener('keydown', function (e) {
         const key = e.key;
         const t = e.target;
@@ -1696,10 +2109,19 @@ location.replace('vote.html?series=' + seriesId);
           }
           setEyedropperActive(false);
         } else if (key === 'Escape') {
+          // Сначала закрываем справку, если она открыта
+          if (helpOverlay && helpOverlay.classList.contains('show')) {
+            hideOverlay(helpOverlay);
+            e.preventDefault();
+            return;
+          }
+          // И в любом случае выключаем пипетку
           setEyedropperActive(false);
         }
       });
 
+  // запуск логики страниц справки
+      initHelpPaging();
     }
 
 

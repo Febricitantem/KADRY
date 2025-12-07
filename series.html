@@ -87,16 +87,31 @@
     justify-content: center;
     overflow: hidden;
     margin: 0;                /* центрирование теперь делает .stage */
+    position: relative;       /* нужно для абсолютного котика */
 }
 
-
-/* КАРТИНКА ВСЕГДА РАСТЯГИВАЕТСЯ ДО РАЗМЕРОВ ХОЛСТА */
-.viewport img {
+/* КАРТИНКА КАДРА */
+.frame-img{
     width: 100%;
     height: 100%;
     object-fit: contain;   /* сохраняем пропорции: 1920x1080 */
     display: block;
+    transition: opacity .2s ease-out;
 }
+.frame-img.is-hidden{
+    opacity: 0;
+}
+
+/* КОТИК-ПРЕЛОАДЕР ПО ЦЕНТРУ */
+.frame-loader{
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    max-width: 25%;
+    max-height: 25%;
+    pointer-events: none;
+}
+
 
     /* Навигация по кадрам */
     .controls{
@@ -158,10 +173,12 @@
       font-size:18px;
       font-weight:800
     }
-    .desc-text{
+        .desc-text{
       color:#334155;
-      white-space:pre-wrap
+      white-space:pre-wrap;
+      min-height:3em; /* чтобы блок не прыгал при подмене текста */
     }
+
 
     .comments{
       margin:12px 0 30px;
@@ -314,13 +331,25 @@
   </header>
 
   <div class="wrap">
-    <h1 id="series-title">Серия</h1>
+    <h1 id="series-title">Загрузка</h1>
 
     <div class="stage">
       <div class="viewport">
-        <img id="frame-img" alt="Кадр" loading="lazy" />
+        <img
+          src="KOTRUN.gif"
+          alt="Загрузка кадра"
+          class="frame-loader"
+          id="frame-loader"
+        />
+        <img
+          id="frame-img"
+          alt="Кадр"
+          loading="lazy"
+          class="frame-img is-hidden"
+        />
       </div>
     </div>
+
 
     <div class="controls">
       <button id="first-btn" class="btn" title="В начало">⟨⟨</button>
@@ -339,9 +368,12 @@
     <section class="desc-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <h2 style="margin:0">Описание серии</h2>
-        <button id="desc-edit-btn" class="btn" title="Редактировать описание">✎</button>
+       <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
       </div>
-      <div id="series-desc" class="desc-text" style="margin-top:8px">Описание отсутствует.</div>
+      <div id="series-desc" class="desc-text" style="margin-top:8px">
+        Загрузка описания…
+      </div>
+
       <form id="desc-form" style="display:none; margin-top:10px;" onsubmit="return false;">
         <textarea id="desc-input" class="desc-text" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px; min-height:100px; resize:vertical" placeholder="Напишите описание серии…"></textarea>
         <div class="bottom" style="justify-content:flex-end; gap:8px; margin-top:8px">
@@ -441,28 +473,56 @@
     }
   }
 
-  var _rawId = new URLSearchParams(location.search).get('id');
-  var seriesId = Number(_rawId);
-  if(!isFinite(seriesId) || seriesId<=0){
-    console.warn('series.html: неверный id в URL', _rawId);
-    location.replace('index.html');
-    return;
+var _rawId = new URLSearchParams(location.search).get('id');
+var seriesId = Number(_rawId);
+if(!isFinite(seriesId) || seriesId<=0){
+  console.warn('series.html: неверный id в URL', _rawId);
+  location.replace('index.html');
+  return;
+}
+
+// Проверяем, открыт ли сейчас онлайн
+checkSiteOpen();
+
+var committedFrames = [];
+var current = 0;
+
+var titleEl = document.getElementById('series-title');
+var descEl  = document.getElementById('series-desc');
+
+// --- анимация "Загрузка..." в заголовке ---
+var titleLoadingTimer = null;
+
+function startTitleLoading() {
+  if (!titleEl) return;
+  var dots = 0;
+  titleEl.textContent = 'Загрузка серии';
+  titleLoadingTimer = setInterval(function () {
+    dots = (dots + 1) % 4; // 0,1,2,3
+    var tail = dots ? '.'.repeat(dots) : '';
+    titleEl.textContent = 'Загрузка серии' + tail;
+  }, 500);
+}
+
+function stopTitleLoading() {
+  if (titleLoadingTimer) {
+    clearInterval(titleLoadingTimer);
+    titleLoadingTimer = null;
   }
+}
 
-  // Проверяем, открыт ли сейчас онлайн
-  checkSiteOpen();
+// запускаем анимацию ТЕПЕРЬ, когда titleEl уже найден
+startTitleLoading();
 
-  var committedFrames = [];
-  var current = 0;
 
-  var titleEl = document.getElementById('series-title');
-  var descEl  = document.getElementById('series-desc');
   var descForm = document.getElementById('desc-form');
   var descInput= document.getElementById('desc-input');
   var descEdit = document.getElementById('desc-edit-btn');
   var descSave = document.getElementById('desc-save');
   var descCancel = document.getElementById('desc-cancel');
-  var imgEl   = document.getElementById('frame-img');
+  var imgEl    = document.getElementById('frame-img');
+  var loaderEl = document.getElementById('frame-loader');  
+  var posEl    = document.getElementById('pos-label');
   var posEl   = document.getElementById('pos-label');
   var firstBtn= document.getElementById('first-btn');
   var prevBtn = document.getElementById('prev-btn');
@@ -489,14 +549,13 @@
     syncAdminUI();
   });
 
-  function syncAdminUI(){
-    // Кнопка редактирования описания доступна только админу.
-    if (descEdit) {
-      descEdit.style.display = isAdmin ? 'inline-block' : 'none';
-    }
-    var adminBars = document.querySelectorAll('.admin-only');
-    adminBars.forEach(function (el) { el.style.display = isAdmin ? '' : 'none'; });
-  }
+function syncAdminUI(){
+  var adminBars = document.querySelectorAll('.admin-only');
+  adminBars.forEach(function (el) {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+}
+
 
   // Фразы-заглушки для пустого описания (НЕ сохраняются в БД — только отображаются)
   var descriptionPlaceholders = [
@@ -548,16 +607,36 @@
 
   function fmtPos(){ return (current+1)+' / '+committedFrames.length; }
 
-  function renderStage(){
+   function renderStage(){
     if(!committedFrames.length){
-      imgEl.removeAttribute('src');
+      if (imgEl) {
+        imgEl.removeAttribute('src');
+        imgEl.classList.add('is-hidden');
+      }
+      if (loaderEl) {
+        loaderEl.style.display = 'none';
+      }
       posEl.textContent = 'Кадров пока нет';
       firstBtn.disabled = prevBtn.disabled = true;
       nextBtn.disabled  = lastBtn.disabled  = true;
       return Promise.resolve();
     }
+
     var frame = committedFrames[current];
+
+    // Перед началом загрузки кадра показываем котика и прячем картинку
+    if (loaderEl) {
+      loaderEl.style.display = 'block';
+    }
+    if (imgEl) {
+      imgEl.classList.add('is-hidden');
+    }
+
     return getDisplayUrl(frame.image_url).then(function(url){
+      imgEl.onload = function(){
+        imgEl.classList.remove('is-hidden');
+        if (loaderEl) loaderEl.style.display = 'none';
+      };
       imgEl.onerror = function(){
         try{
           var tail = (frame.image_url||'').split('?')[0].split('/').pop();
@@ -567,8 +646,11 @@
             var pub2 = supabase.storage.from('Frames').getPublicUrl('public/'+tail);
             if(pub2 && pub2.data && pub2.data.publicUrl){ imgEl.src = pub2.data.publicUrl; return; }
           }
-        }catch(_){ }
+        }catch(_){}
+        // если даже fallback не сработал, можно спрятать котика
+        if (loaderEl) loaderEl.style.display = 'none';
       };
+
       imgEl.src = url;
       posEl.textContent = fmtPos();
       firstBtn.disabled = prevBtn.disabled = (current<=0);
@@ -576,20 +658,29 @@
     });
   }
 
+
   function loadSeries(){
     return supabase
-      .from('series').select('title, description').eq('id', seriesId).maybeSingle()
+      .from('series')
+      .select('title, description')
+      .eq('id', seriesId)
+      .maybeSingle()
       .then(function(r){
-        if(r.error){ console.error('series load error', r.error); }
-        var s = r.data;
-        if(!s){ 
-          titleEl.textContent='Серия'; 
-          descEl.textContent='Описание отсутствует.'; 
-          descInput.value = ''; 
-          descInput.defaultValue = ''; 
-          return; 
+        // останавливаем анимацию в любом случае
+        stopTitleLoading();
+
+        if(r.error){
+          console.error('series load error', r.error);
         }
+        var s = r.data;
+        if(!s){
+          titleEl.textContent = 'Серия';
+          // если серии вообще нет — оставляем "Загрузка описания…" как есть
+          return;
+        }
+
         titleEl.textContent = s.title || 'Серия';
+
         if (s.description && s.description.trim()) {
           // В БД есть сохранённое описание
           activePlaceholder = null;
@@ -599,11 +690,14 @@
         } else {
           // В БД описания нет — показываем только визуальный плейсхолдер,
           // в поле ввода он не попадает.
-          activePlaceholder = descriptionPlaceholders[Math.floor(Math.random() * descriptionPlaceholders.length)];
+          activePlaceholder = descriptionPlaceholders[
+            Math.floor(Math.random() * descriptionPlaceholders.length)
+          ];
           descEl.textContent = activePlaceholder;
           descInput.value = '';
           descInput.defaultValue = '';
         }
+
         syncAdminUI();
       })
       .then(function(){
@@ -616,14 +710,26 @@
           .order('id', { ascending:true });
       })
       .then(function(r){
-        if(r && r.error){ console.error('frames load error', r.error); }
+        if(r && r.error){
+          console.error('frames load error', r.error);
+        }
         committedFrames = (r && r.data) ? r.data : [];
         current = Math.max(0, committedFrames.length - 1);
         return renderStage();
       })
-      .then(function(){ loadComments(true); })
-      .catch(function(e){ console.error('loadSeries fatal', e); });
+      .then(function(){
+        loadComments(true);
+      })
+      .catch(function(e){
+        // на ошибке тоже выключаем "Загрузка..."
+        stopTitleLoading();
+        console.error('loadSeries fatal', e);
+        if (titleEl && (!titleEl.textContent || titleEl.textContent.startsWith('Загрузка'))) {
+          titleEl.textContent = 'Серия';
+        }
+      });
   }
+
 
   firstBtn.onclick = function(){ if(committedFrames.length){ current=0; renderStage(); } };
   prevBtn.onclick  = function(){ if(current>0){ current--; renderStage(); } };

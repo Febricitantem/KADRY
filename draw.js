@@ -1465,62 +1465,134 @@ if (e.pointerType === 'pen' && e.button === 2) {
     });
 
 
-    // ---- хоткеи кисти / пипетки / толщины
+    // ---- хоткеи кисти / пипетки / толщины + зум
     document.addEventListener('keydown', function (e) {
       if (isTimeExpired()) return;
-      if ((e.target && ('value' in e.target)) && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
+      // Не трогаем ввод в полях
+      if (
+        e.target &&
+        ('value' in e.target) &&
+        (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')
+      ) {
+        return;
+      }
+
       var code = e.code || '';
       var key = (e.key || '').toLowerCase();
 
+      // --- инструменты ---
+
+      // Кисть (B / И)
       if (code === 'KeyB' || key === 'b' || key === 'и') {
-        if (toolSel) { toolSel.value = 'brush'; toolSel.dispatchEvent(new Event('change')); }
-        e.preventDefault(); return;
+        if (toolSel) {
+          toolSel.value = 'brush';
+          toolSel.dispatchEvent(new Event('change'));
+        }
+        e.preventDefault();
+        return;
       }
+
+      // Ластик (E / У)
       if (code === 'KeyE' || key === 'e' || key === 'у') {
         if (toolSel) {
-          toolSel.value = 'eraser'; toolSel.dispatchEvent(new Event('change'));
+          toolSel.value = 'eraser';
+          toolSel.dispatchEvent(new Event('change'));
           if (!colorInp.value) colorInp.value = '#ffffff';
         }
-        e.preventDefault(); return;
+        e.preventDefault();
+        return;
       }
 
       // Пипетка — только по P / З, без Ctrl/Meta/Alt
-      if (!e.ctrlKey && !e.metaKey && !e.altKey &&
-        (code === 'KeyP' || key === 'p' || key === 'з')) {
+      if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        (code === 'KeyP' || key === 'p' || key === 'з')
+      ) {
         pickColorAt(lastPos);
         e.preventDefault();
         return;
       }
 
+      // --- толщина кисти ---
+
+      // Увеличить толщину (] / Ъ)
       if (code === 'BracketRight' || key === ']' || key === 'ъ') {
         if (sizeInp) {
           sizeInp.value = String(clamp(Number(sizeInp.value) + 2, 1, 120));
           sizeInp.dispatchEvent(new Event('input'));
         }
-        e.preventDefault(); return;
+        e.preventDefault();
+        return;
       }
+
+      // Уменьшить толщину ([ / Х)
       if (code === 'BracketLeft' || key === '[' || key === 'х') {
         if (sizeInp) {
           sizeInp.value = String(clamp(Number(sizeInp.value) - 2, 1, 120));
           sizeInp.dispatchEvent(new Event('input'));
         }
-        e.preventDefault(); return;
+        e.preventDefault();
+        return;
       }
+
+      // --- непрозрачность кисти ---
+
+      // Больше непрозрачность (=)
       if (code === 'Equal' || key === '=') {
         if (alphaInp) {
-          alphaInp.value = String(clamp(Number(alphaInp.value) + 0.05, 0, 1));
+          alphaInp.value = String(
+            clamp(Number(alphaInp.value) + 0.05, 0, 1)
+          );
           alphaInp.dispatchEvent(new Event('input'));
         }
-        e.preventDefault(); return;
+        e.preventDefault();
+        return;
       }
+
+      // Меньше непрозрачность (-)
       if (code === 'Minus' || key === '-') {
         if (alphaInp) {
-          alphaInp.value = String(clamp(Number(alphaInp.value) - 0.05, 0, 1));
+          alphaInp.value = String(
+            clamp(Number(alphaInp.value) - 0.05, 0, 1)
+          );
           alphaInp.dispatchEvent(new Event('input'));
         }
-        e.preventDefault(); return;
+        e.preventDefault();
+        return;
+      }
+
+      // --- ЗУМ по стрелкам (только в режиме "Лупа") ---
+
+      if (code === 'ArrowUp') {
+        if (toolSel && toolSel.value === 'zoom') {
+          var factorUp = 1.1;
+          var newZoomUp = zoomLevel * factorUp;
+          newZoomUp = Math.max(minZoom, Math.min(maxZoom, newZoomUp));
+          if (Math.abs(newZoomUp - 1) < 0.05) newZoomUp = 1;
+          zoomLevel = newZoomUp;
+          applyViewTransform();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (code === 'ArrowDown') {
+        if (toolSel && toolSel.value === 'zoom') {
+          var factorDown = 1 / 1.1;
+          var newZoomDown = zoomLevel * factorDown;
+          newZoomDown = Math.max(minZoom, Math.min(maxZoom, newZoomDown));
+          if (Math.abs(newZoomDown - 1) < 0.05) newZoomDown = 1;
+          zoomLevel = newZoomDown;
+          applyViewTransform();
+          e.preventDefault();
+        }
+        return;
       }
     });
+
 
     // ---- хоткеи undo/redo и copy/paste (работают в обеих раскладках)
     document.addEventListener('keydown', function (e) {

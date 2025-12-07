@@ -66,6 +66,21 @@
   margin:22px auto;
   padding:0 18px;
 }
+    .loading-box{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:40px 0;
+      color:#6b7280;
+      font-size:15px;
+      gap:6px;
+    }
+    .loading-cat{
+      max-width:96px;
+      height:auto;
+    }
+
 
 /* строка "Каталог серий" + кнопка */
 .catalog-header {
@@ -221,7 +236,13 @@
     <button id="open-create" class="btn primary">Создать серию</button>
   </div>
 
-    <div id="series-list" style="margin-top:14px">Загрузка…</div>
+    <div id="series-list" style="margin-top:14px">
+      <div class="loading-box">
+        <img src="KOTRUN.gif" alt="Котик бежит и тащит загрузку" class="loading-cat">
+        <div id="loadingText">Загрузка</div>
+      </div>
+    </div>
+
 
     <!-- 🔹 НОВОЕ: блок пагинации -->
    <div style="width:100%; display:flex; justify-content:center;">
@@ -301,6 +322,32 @@
   ];
 
   const signedCache = new Map();
+    let loadingTimer = null;
+
+  function showLoading(host){
+    host.innerHTML = `
+      <div class="loading-box">
+        <img src="KOTRUN.gif" alt="Котик бежит и тащит загрузку" class="loading-cat">
+        <div id="loadingText">Загрузка</div>
+      </div>
+    `;
+
+    if (loadingTimer) {
+      clearInterval(loadingTimer);
+      loadingTimer = null;
+    }
+
+    const textEl = host.querySelector('#loadingText');
+    if (textEl) {
+      const base = 'Загрузка';
+      let dots = 0;
+      loadingTimer = setInterval(() => {
+        dots = (dots + 1) % 4; // 0..3
+        textEl.textContent = base + (dots ? '.'.repeat(dots) : '');
+      }, 400);
+    }
+  }
+
   async function getDisplayUrl(storedUrl){
     try{
       if(!storedUrl) return storedUrl;
@@ -588,7 +635,8 @@
     const pag = document.getElementById('pagination');
 
     currentPage = page;
-    host.textContent='Загрузка…';
+    showLoading(host);
+
 
     if (pag) {
       pag.style.visibility = 'hidden';
@@ -605,13 +653,22 @@
 
     if(error){
       console.error(error);
+      if (loadingTimer) {
+        clearInterval(loadingTimer);
+        loadingTimer = null;
+      }
       host.textContent='Ошибка загрузки';
       return;
     }
 
     totalPages = count ? Math.max(1, Math.ceil(count / PAGE_SIZE)) : 1;
 
+    if (loadingTimer) {
+      clearInterval(loadingTimer);
+      loadingTimer = null;
+    }
     host.textContent='';
+
     for (const s of (series || [])) {
       await renderSeriesRow(s, host);
     }

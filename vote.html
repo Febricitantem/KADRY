@@ -885,7 +885,7 @@ async function loadFrames() {
       });
     }
 
-    // === Пустые состояния ===
+        // === Пустые состояния ===
     function updateEmptyMessage() {
       let msg = document.getElementById("empty-message");
       if (!msg) {
@@ -895,16 +895,31 @@ async function loadFrames() {
         if (app) app.appendChild(msg);
       }
 
+      // 1) Совсем новое голосование, раунд ещё не создан
+      if (!currentSeries || !currentSeries.vote_round_id) {
+        msg.textContent = "Голосование ещё не началось. Добавьте первый кадр.";
+        msg.style.display = "block";
+        return;
+      }
+
+      // 2) Обычное пустое активное голосование
       if (frames.length === 0 && voteState === "active") {
-        msg.textContent = "Сейчас нет кадров в голосовании. Подождите, пока художники добавят кадры.";
+        msg.textContent =
+          "Сейчас нет кадров в голосовании. Подождите, пока художники добавят кадры.";
         msg.style.display = "block";
-      } else if (voteState === "replay_frozen") {
-        msg.textContent = "Победитель не определился. Ждём переигровки с новыми кадрами.";
+      }
+      // 3) Замороженная переигровка
+      else if (voteState === "replay_frozen") {
+        msg.textContent =
+          "Победитель не определился. Ждём переигровки с новыми кадрами.";
         msg.style.display = "block";
-      } else {
+      }
+      // 4) Во всех остальных случаях — прячем сообщение
+      else {
         msg.style.display = "none";
       }
     }
+
 
     // === Таймер ===
     function formatTimer(ms) {
@@ -1171,9 +1186,15 @@ async function loadFrames() {
         });
     }
 
-    async function reloadAll() {
+       async function reloadAll() {
       await loadSeries();
       await loadFrames();      // 1 — загружаем кадры
+
+      // Если раунд ещё не создан (vote_round_id = NULL),
+      // не показываем стартовый кадр в сетке голосования
+      if (!currentSeries || !currentSeries.vote_round_id) {
+        frames = [];
+      }
 
       renderFrames();          // 2 — рисуем карточки
       await loadUserVotes();   // 3 — узнаём, какие кадры гость уже оценил

@@ -15,7 +15,7 @@
 
   /* убираем "Каталог серий" как отдельный заголовок */
   .catalog-header h1 {
-    display: none;
+    display: none !important;
   }
 
   .catalog-header {
