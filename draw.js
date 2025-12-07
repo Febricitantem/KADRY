@@ -456,6 +456,32 @@ function updateSmoothLabel() {
     var selecting = false;
     var dragging = false;
     var brushCursorVisible = true; // флаг, можно ли рисовать круг-курсор кисти
+        // Сброс всех "живых" действий (мазок, превью, выделение)
+    function cancelLiveOps() {
+      // текущий мазок
+      drawing = false;
+      pathPoints = [];
+
+      // выделение / перетаскивание
+      selecting = false;
+      dragging = false;
+      dragMode = null;
+
+      // если было произвольное выделение — убираем его визуально
+      selection = null;
+      selectionFromRef = false;
+      beforeSelectSnapshot = null;
+
+      // чистим превью-холст, чтобы не висел хвост линии
+      if (preview && preview.ctx) {
+        preview.ctx.clearRect(0, 0, W, H);
+      }
+
+      // обновляем интерфейс
+      redrawPreview();
+      updateSelButtons();
+    }
+
 
 
     function applyLockState() {
@@ -709,46 +735,66 @@ function updateSmoothLabel() {
     }
 
     function findLayerById(id) {
-      for (var i = 0; i < layers.length; i++) if (layers[i].id === id) return layers[i];
+      for (var i = 0; i < layers.length; i++) {
+        if (layers[i].id === id) return layers[i];
+      }
       return null;
     }
 
+    // UNDO с очисткой живого мазка / выделения
     function undo() {
       if (isTimeExpired()) return;
+
+      // если в данный момент рисуем или тянем выделение — гасим это
+      cancelLiveOps();
+
       if (!historyOrder.length) return;
       var entry = historyOrder.pop();
       var l = findLayerById(entry.layerId);
       if (!l || l.isRef) return;
+
       var rec = imgHistory.get(l.id);
       if (!rec || !rec.undo.length) return;
+
       var cur = l.canvas.toDataURL('image/png');
       var prev = rec.undo.pop();
+
       rec.redo.push(cur);
       if (rec.redo.length > ACTION_LIMIT) rec.redo.shift();
       imgHistory.set(l.id, rec);
+
       redoOrder.push({ layerId: l.id });
       applyImageToLayer(l, prev);
     }
 
+    // REDO тоже сначала убирает живое действие
     function redo() {
       if (isTimeExpired()) return;
+
+      cancelLiveOps();
+
       if (!redoOrder.length) return;
       var entry = redoOrder.pop();
       var l = findLayerById(entry.layerId);
       if (!l || l.isRef) return;
+
       var rec = imgHistory.get(l.id);
       if (!rec || !rec.redo.length) return;
+
       var cur = l.canvas.toDataURL('image/png');
       var next = rec.redo.pop();
+
       rec.undo.push(cur);
       if (rec.undo.length > ACTION_LIMIT) rec.undo.shift();
       imgHistory.set(l.id, rec);
+
       historyOrder.push({ layerId: l.id });
       applyImageToLayer(l, next);
     }
 
     if (undoBtn) undoBtn.onclick = undo;
     if (redoBtn) redoBtn.onclick = redo;
+
 
     // ---- preview-слой
     var preview = (function () {
