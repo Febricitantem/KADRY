@@ -447,6 +447,8 @@
     const committed = (allFrames||[]).filter(f=>f.committed);
     const inVote    = (allFrames||[]).filter(f=>!f.committed && f.in_vote);
     const previewFrames = committed.length ? committed : inVote;
+    const canHideDesc = previewFrames.length >= 3;
+
 
     const row=document.createElement('div'); row.className='series-row';
 
@@ -534,7 +536,11 @@
       stack.style.width = targetWidth + 'px';
       stack.style.height = stack.offsetHeight + 'px';
 
-      row.classList.add('expanded'); stack.classList.add('expanded');
+if (canHideDesc) {
+  row.classList.add('expanded'); // только тогда будем прятать описание
+}
+stack.classList.add('expanded');   // анимация стопки — всегда
+
       void stack.offsetWidth;
 
       tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; });
@@ -560,7 +566,11 @@
     function collapse(){
       if(!expanded) return; expanded=false;
       const tiles=Array.from(stack.querySelectorAll('.tile'));
-      row.classList.remove('expanded'); stack.classList.remove('expanded');
+      if (canHideDesc) {
+  row.classList.remove('expanded');
+}
+stack.classList.remove('expanded');
+
       const shift=14;
       tiles.forEach((t,idx)=>{ t.style.left=(idx*shift)+'px'; t.tabIndex=-1; });
       const finish=()=>{
