@@ -256,17 +256,23 @@
 
 <script>
   // --- Supabase init ---
-  const supabase = window.supabase.createClient(
-    "https://upanhirmxhfzpajvswoq.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA",
-    {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        storageKey: "kadry-auth",
-      },
-    }
-  );
+  // ВАЖНО: не называем переменную "supabase", потому что она уже может быть объявлена в admin.js
+  // Также переиспользуем существующий клиент, если он уже есть.
+  const sb =
+    (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function')
+      ? supabase // если admin.js уже создал клиент supabase = createClient(...)
+      : (window.__kadry_sb || (window.__kadry_sb = window.supabase.createClient(
+          "https://upanhirmxhfzpajvswoq.supabase.co",
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA",
+          {
+            auth: {
+              autoRefreshToken: true,
+              persistSession: true,
+              storageKey: "kadry-auth",
+            },
+          }
+        )));
+
 
   // --- Проверка, открыт ли онлайн ---
   async function checkSiteOpen() {
@@ -280,7 +286,7 @@
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('site_state')
         .select('id, is_open, announcement')
         .limit(1)
@@ -347,27 +353,45 @@
       }, 400);
     }
   }
+const USE_SIGNED_URLS = false; // true если Frames НЕ public
 
-  async function getDisplayUrl(storedUrl){
-    try{
-      if(!storedUrl) return storedUrl;
-      if(storedUrl.includes('token=')) return storedUrl;
-      if(signedCache.has(storedUrl)) return signedCache.get(storedUrl);
-      const anchor='/storage/v1/object/';
-      let rest=null; const i=storedUrl.indexOf(anchor);
-      if(i!==-1) rest=storedUrl.substring(i+anchor.length);
-      if(!rest && storedUrl.includes('/Frames/')) rest='Frames/'+storedUrl.split('/Frames/')[1];
-      if(!rest) return storedUrl;
-      if(rest.startsWith('public/')) rest=rest.substring(7);
-      if(rest.startsWith('sign/'))   rest=rest.substring(5);
-      const b=rest.indexOf('Frames/');
-      if(b===-1) return storedUrl;
-      const path=rest.substring(b+'Frames/'.length);
-      const { data, error } = await supabase.storage.from('Frames').createSignedUrl(path,3600);
-      if(!error && data?.signedUrl){ signedCache.set(storedUrl,data.signedUrl); return data.signedUrl; }
-    }catch(e){ console.warn('getDisplayUrl error',e); }
-    return storedUrl;
+async function getDisplayUrl(storedUrl){
+  try{
+    if(!storedUrl) return storedUrl;
+    if(storedUrl.includes('token=')) return storedUrl;
+    if(signedCache.has(storedUrl)) return signedCache.get(storedUrl);
+
+    const anchor='/storage/v1/object/';
+    let rest=null; const i=storedUrl.indexOf(anchor);
+    if(i!==-1) rest=storedUrl.substring(i+anchor.length);
+    if(!rest && storedUrl.includes('/Frames/')) rest='Frames/'+storedUrl.split('/Frames/')[1];
+    if(!rest) return storedUrl;
+    if(rest.startsWith('public/')) rest=rest.substring(7);
+    if(rest.startsWith('sign/'))   rest=rest.substring(5);
+
+    const b=rest.indexOf('Frames/');
+    if(b===-1) return storedUrl;
+
+    const path=rest.substring(b+'Frames/'.length);
+
+    if (!USE_SIGNED_URLS) {
+      const { data } = sb.storage.from('Frames').getPublicUrl(path);
+      const u = data?.publicUrl;
+      if (u) { signedCache.set(storedUrl, u); return u; }
+      return storedUrl;
+    }
+
+    const { data, error } = await sb.storage.from('Frames').createSignedUrl(path, 3600);
+    if(!error && data?.signedUrl){
+      signedCache.set(storedUrl, data.signedUrl);
+      return data.signedUrl;
+    }
+  }catch(e){
+    console.warn('getDisplayUrl error', e);
   }
+  return storedUrl;
+}
+
 
   // --- Переход в редактор при создании серии ---
   (function(){
@@ -436,7 +460,7 @@
   // --- Рендер одной серии (вынесено в функцию) ---
   async function renderSeriesRow(s, host) {
     // Берём кадры: сначала committed, если их нет — кадры in_vote
-    const { data: allFrames } = await supabase
+    const { data: allFrames } = await sb
       .from('frames')
       .select('id,image_url,order_index,committed,in_vote')
       .eq('series_id', s.id)
@@ -655,7 +679,7 @@ stack.classList.remove('expanded');
     const from = (page - 1) * PAGE_SIZE;
     const to   = from + PAGE_SIZE - 1;
 
-    const { data: series, error, count } = await supabase
+    const { data: series, error, count } = await sb
       .from('series')
       .select('*', { count: 'exact' })
       .order('created_at',{ascending:false})
