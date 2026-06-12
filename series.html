@@ -10,6 +10,12 @@
       --text: #111827;
       --muted: #64748b;
       --stroke: #e5e7eb;
+
+      /* Единый формат кадра. Он должен совпадать с draw.js: W=1920, H=1080. */
+      --kadry-canvas-w: 1920;
+      --kadry-canvas-h: 1080;
+      --kadry-canvas-ratio: 1920 / 1080;
+      --kadry-series-preview-w: 960px;
     }
 
     /* Общая тема */
@@ -71,14 +77,18 @@
   border-radius:12px;
   box-shadow:0 1px 2px rgba(0,0,0,.04);
   padding:12px;
-  max-width: 984px;      /* 960 холст + 2*12 отступы */
-  margin: 0 auto;        /* центрируем карточку, чтобы не растягивалась на всю ширину */
+  box-sizing:border-box;
+  width:min(100%, calc(var(--kadry-series-preview-w) + 24px));
+  max-width:none;
+  margin:0 auto;        /* центрируем карточку, чтобы не растягивалась на всю ширину */
 }
 
-    /* ФИКСИРОВАННЫЙ ХОЛСТ 1920×1080 (масштабируется, но всегда остаётся 16:9) */
+    /* Рабочий формат кадра: 1920×1080. Блок может уменьшаться, но пропорция не меняется. */
 .viewport {
-    width: 100%;              /* занимает всю ширину внутри .stage */
-    aspect-ratio: 16 / 9;
+    box-sizing:border-box;
+    width: 100%;
+    max-width: var(--kadry-series-preview-w);
+    aspect-ratio: var(--kadry-canvas-ratio);
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -86,16 +96,20 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    margin: 0;                /* центрирование теперь делает .stage */
+    margin: 0 auto;
     position: relative;       /* нужно для абсолютного котика */
 }
 
 /* КАРТИНКА КАДРА */
 .frame-img{
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;   /* сохраняем пропорции: 1920x1080 */
-    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain !important;   /* запрещаем геометрическое искажение кадра */
+    object-position: center center;
+    flex: 0 0 auto;
     transition: opacity .2s ease-out;
 }
 .frame-img.is-hidden{
@@ -345,6 +359,8 @@
           id="frame-img"
           alt="Кадр"
           loading="lazy"
+          width="1920"
+          height="1080"
           class="frame-img is-hidden"
         />
       </div>

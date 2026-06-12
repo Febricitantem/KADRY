@@ -146,6 +146,7 @@
       font-size: 12px;
       line-height: 1;
       font-weight: 700;
+      z-index: 2;
     }
     .badge.frozen {
       background: #64748b;
@@ -288,22 +289,7 @@ window.addEventListener('admin:enabled', function () {
   }
 });
 const host = document.getElementById('list');
-
-      // Старые ключи (исторически в votes.html)
-      const LS_STATE     = (id)=>`series_${id}_state`;            // active | replay_frozen | winner_frozen
-      const LS_ROUND_AT  = (id)=>`series_${id}_round_start_at`;   // ISO
-      const LS_END_AT    = (id)=>`series_${id}_round_end_at`;     // ms
-      const LS_LAST_SEEN = (id)=>`series_${id}_last_seen_ms`;     // ms
-
-      // Новые ключи (синхронны с editor.html и vote.html)
-      const K_STATE = (id)=>`kadry_vote_state_${id}`;
-      const K_ROUND = (id)=>`kadry_round_at_${id}`;
-      const K_END   = (id)=>`kadry_end_at_${id}`;
-      const K_LAST  = (id)=>`kadry_last_seen_${id}`;
-      const K_FROZEN= (id)=>`kadry_frozen_${id}`;
-
-      const MAX_MS = 30*60*1000; // 30 минут базово
-      const EXT_MS = 5*60*1000;  // +5 минут за новый кадр
+      const activeTimers = [];
 
       const signedCache = new Map();
       async function getDisplayUrl(storedUrl){
@@ -334,21 +320,41 @@ const host = document.getElementById('list');
         return `${String(m).padStart(2,'0')}:${ss}`;
       }
 
+      function clearActiveTimers(){
+        while(activeTimers.length){
+          clearInterval(activeTimers.pop());
+        }
+      }
+
+      function parseTimeMs(value){
+        const ms = value ? Date.parse(value) : NaN;
+        return Number.isFinite(ms) ? ms : 0;
+      }
+
       async function loadSeries(){
+        clearActiveTimers();
         host.textContent = 'Загрузка...';
-        const { data: series, error } = await db.from('series').select('id,title,description').order('id');
+
+        const { data: series, error } = await db
+          .from('series')
+          .select('id,title,description,vote_state,vote_round_start_at,vote_round_end_at,vote_round_id')
+          .order('id');
+
         if(error){ host.textContent='Ошибка загрузки серий'; console.error(error); return; }
         host.textContent = '';
 
         for(const s of (series||[])){
-          // Вычислим индекс голосуемого кадра (после последнего committed)
+          const state = s.vote_state || 'idle';
+          if(state === 'winner_frozen' || state === 'idle') continue;
+
+          // Вычислим индекс голосуемого кадра (после последнего committed).
+          // Состояние раунда берём только из Supabase.
           const { data: maxRow } = await db
             .from('frames').select('order_index').eq('series_id', s.id).eq('committed', true)
             .order('order_index', { ascending:false }).limit(1);
           const baseIndex = (maxRow && maxRow.length && maxRow[0].order_index!=null) ? maxRow[0].order_index : 1;
           const voteIndex = baseIndex + 1;
 
-          // Активные кандидаты только текущего индекса и только in_vote
           const { data: frames, error: ferr } = await db
             .from('frames')
             .select('id,image_url,created_at,in_vote,order_index')
@@ -358,45 +364,10 @@ const host = document.getElementById('list');
             .order('created_at', { ascending: true });
           if(ferr){ console.error(ferr); continue; }
           const act = (frames||[]);
-          if(!act.length) continue; // нет активного голосования/переигровки
+          if(!act.length) continue;
 
-          // Состояние и тайминги (с учётом новых ключей)
-          let state = localStorage.getItem(K_STATE(s.id)) || localStorage.getItem(LS_STATE(s.id)) || 'active';
-          if(state==='winner_frozen') continue; // финал — не показываем
+          const endMs = parseTimeMs(s.vote_round_end_at);
 
-          let startIso = localStorage.getItem(K_ROUND(s.id)) || localStorage.getItem(LS_ROUND_AT(s.id));
-          let startMs  = startIso ? Date.parse(startIso) : NaN;
-          let endMs    = Number(localStorage.getItem(K_END(s.id)) || localStorage.getItem(LS_END_AT(s.id)) || 0);
-          let lastSeen = Number(localStorage.getItem(K_LAST(s.id)) || localStorage.getItem(LS_LAST_SEEN(s.id)) || 0);
-
-          if(!isFinite(startMs)){
-            // Инициализация по первому кандидату
-            startMs = Math.min(...act.map(a=> new Date(a.created_at).getTime()));
-            if(!isFinite(startMs)) continue;
-            startIso = new Date(startMs).toISOString();
-            endMs = startMs + MAX_MS;
-            // эмуляция продлений по каждому новому кадру
-            const sorted = [...act].sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
-            lastSeen = startMs;
-            for(const f of sorted){
-              const t = new Date(f.created_at).getTime();
-              if(t>lastSeen){
-                endMs = Math.min(startMs + MAX_MS, endMs + EXT_MS);
-                lastSeen = t;
-              }
-            }
-            // сохраним во ВСЕ ключи, чтобы синхронизировать со страницами
-            localStorage.setItem(LS_STATE(s.id), state);
-            localStorage.setItem(LS_ROUND_AT(s.id), startIso);
-            localStorage.setItem(LS_END_AT(s.id), String(endMs));
-            localStorage.setItem(LS_LAST_SEEN(s.id), String(lastSeen));
-            localStorage.setItem(K_STATE(s.id), state);
-            localStorage.setItem(K_ROUND(s.id), startIso);
-            localStorage.setItem(K_END(s.id), String(endMs));
-            localStorage.setItem(K_LAST(s.id), String(lastSeen));
-          }
-
-          // Карточка серии в списке
           const box = document.createElement('div');
           box.className = 'series card';
           box.innerHTML = `<h3><a href="series.html?id=${s.id}">${escapeHtml(s.title||('Серия #'+s.id))}</a></h3>`;
@@ -415,24 +386,30 @@ const host = document.getElementById('list');
             if(i===0){
               const badge = document.createElement('div');
               badge.className = 'badge';
+
               const draw = ()=>{
-                const curState = localStorage.getItem(K_STATE(s.id)) || localStorage.getItem(LS_STATE(s.id)) || 'active';
-                if(curState==='replay_frozen'){
-                  badge.textContent = 'Заморожено';
+                if(state === 'replay_frozen'){
+                  badge.textContent = 'Переигровка';
                   badge.classList.add('frozen');
                   return;
                 }
-                badge.classList.remove('frozen');
-                const end = Number(localStorage.getItem(K_END(s.id)) || localStorage.getItem(LS_END_AT(s.id)) || endMs);
-                const left = Math.max(0, end - Date.now());
+
+                if(!endMs){
+                  badge.textContent = 'Активно';
+                  badge.classList.remove('frozen');
+                  return;
+                }
+
+                const left = Math.max(0, endMs - Date.now());
                 badge.textContent = fmtLeft(left);
+                badge.classList.toggle('frozen', left <= 0);
               };
+
               draw();
-              const t = setInterval(draw, 1000);
-              // пересчёт при любом «глобальном» сигнале
-              window.addEventListener('storage', function(ev){
-                if(ev.key==='kadry_broadcast'){ draw(); }
-              });
+              if(state === 'active' && endMs){
+                activeTimers.push(setInterval(draw, 1000));
+              }
+              a.appendChild(badge);
             }
 
             a.appendChild(img);
@@ -459,13 +436,18 @@ const host = document.getElementById('list');
           .replaceAll("'",'&#39;');
       }
 
-      // Реакция на глобальную синхронизацию от editor.html (и vote.html)
-      window.addEventListener('storage', function(e){
-        if(e.key==='kadry_broadcast'){
-          // Перечитать список, чтобы таймеры/состояния подхватились
-          loadSeries();
+      // Лёгкая синхронизация между вкладками без записи игрового состояния в браузерное хранилище.
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('kadry-vote');
+          bc.onmessage = function(event) {
+            const data = event && event.data;
+            if (data && data.type === 'round_updated') loadSeries();
+          };
         }
-      });
+      } catch (e) {
+        console.warn('votes BroadcastChannel failed', e);
+      }
 
       // Первичная загрузка
       loadSeries();

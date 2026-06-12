@@ -17,6 +17,11 @@
       --stroke: #e5e7eb;
       --accent: #0f172a;
       --accent-ink: #fff;
+
+      /* Единый формат кадра. Он должен совпадать с draw.js: W=1920, H=1080. */
+      --kadry-canvas-w: 1920;
+      --kadry-canvas-h: 1080;
+      --kadry-canvas-ratio: 1920 / 1080;
     }
 
     html,body{height:100%; margin:0;}
@@ -110,9 +115,11 @@
       position:relative;
       background:#fff;
       border:1px solid #ddd;
+      box-sizing:border-box;
       width:100%;
       height:auto;
-      flex:1 1 auto;
+      aspect-ratio:var(--kadry-canvas-ratio);
+      flex:0 0 auto;
     }
    .color-preview{
   position:absolute;
@@ -1032,52 +1039,59 @@ window.addEventListener('admin:enabled', function () {
     document.body.classList.remove('site-closed');
   }
 });
-// Ключи синхронизации (должны совпадать с vote.html)
-    const K_STATE = (id) => `kadry_vote_state_${id}`;
-    const K_ROUND = (id) => `kadry_round_at_${id}`;
-    const K_END = (id) => `kadry_end_at_${id}`;
-
-    const MAX_DRAW_MS = 10 * 60 * 1000;
+const MAX_DRAW_MS = 10 * 60 * 1000;
     const SAVE_BUFFER_MS = 60 * 1000;
     const NET_RESERVE_MS = 30 * 1000;
+
+    // Источник истины для раунда — поля series.vote_state / vote_round_end_at в Supabase.
+    let cachedVoteTiming = { state: 'active', endMs: 0 };
 
     function postSync(seriesId, msg) {
       try {
         msg.seriesId = String(seriesId);
-      } catch (_) {}
-      try {
         msg.ts = Date.now();
       } catch (_) {}
 
       try {
-        const bc = new BroadcastChannel('kadry_vote');
-        bc.postMessage(msg);
-        bc.close();
-      } catch (_) {}
-
-      try {
-        localStorage.setItem('kadry_broadcast', JSON.stringify({ ...msg, ts: Date.now() }));
-      } catch (_) {
-        localStorage.setItem('kadry_broadcast', String(Date.now()));
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('kadry-vote');
+          bc.postMessage({ type: 'round_updated', ...msg });
+          bc.close();
+        }
+      } catch (e) {
+        console.warn('editor broadcast failed', e);
       }
     }
 
-    function readStateAndEnd() {
-      let state = 'active';
-      let endMs = 0;
+    async function refreshVoteTimingFromDb() {
+      if (!seriesId || mode === 'new') {
+        cachedVoteTiming = { state: 'active', endMs: 0 };
+        return cachedVoteTiming;
+      }
+
       try {
-        if (seriesId) {
-          state =
-            localStorage.getItem(K_STATE(seriesId)) ||
-            localStorage.getItem(`series_${seriesId}_state`) ||
-            'active';
-          endMs =
-            Number(localStorage.getItem(K_END(seriesId))) ||
-            Number(localStorage.getItem(`series_${seriesId}_round_end_at`)) ||
-            0;
-        }
-      } catch (_) {}
-      return { state, endMs };
+        const { data, error } = await supabase
+          .from('series')
+          .select('vote_state, vote_round_end_at')
+          .eq('id', seriesId)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const endMs = data?.vote_round_end_at ? Date.parse(data.vote_round_end_at) : 0;
+        cachedVoteTiming = {
+          state: data?.vote_state || 'active',
+          endMs: Number.isFinite(endMs) ? endMs : 0
+        };
+      } catch (e) {
+        console.warn('refreshVoteTimingFromDb failed', e);
+      }
+
+      return cachedVoteTiming;
+    }
+
+    function readStateAndEnd() {
+      return cachedVoteTiming || { state: 'active', endMs: 0 };
     }
 
     const linkSeries = document.getElementById('backSeries');
@@ -1567,7 +1581,7 @@ try {
 
 // 🔔 Сообщаем вкладкам голосования, что раунд обновлён
 try {
-  const bc = new BroadcastChannel("kadry_vote");
+  const bc = new BroadcastChannel("kadry-vote");
   bc.postMessage({
     type: "round_updated",
     seriesId: String(seriesId),
@@ -1664,8 +1678,11 @@ location.replace('vote.html?series=' + seriesId);
       const r = holder.getBoundingClientRect();
       const availW = r.width;
       const availH = r.height;
-      const targetW = Math.min(availW, (availH * 16) / 9);
-      const targetH = (targetW * 9) / 16;
+      const CANVAS_W = 1920;
+      const CANVAS_H = 1080;
+      const CANVAS_RATIO = CANVAS_W / CANVAS_H;
+      const targetW = Math.min(availW, availH * CANVAS_RATIO);
+      const targetH = targetW / CANVAS_RATIO;
       wrapEl.style.width = targetW + 'px';
       wrapEl.style.height = targetH + 'px';
     }
@@ -2106,14 +2123,17 @@ location.replace('vote.html?series=' + seriesId);
       applyAdminUI();
     });
 
-    function startAll() {
+    async function startAll() {
       setHeaderForMode();
       hookHeaderLinks();
       initEditor();
       fitCanvasWrap();
       requestAnimationFrame(fitCanvasWrap);
       refreshAdminFromGlobal();
-      if (mode !== 'new' && seriesId) startDrawTimer();
+      if (mode !== 'new' && seriesId) {
+        await refreshVoteTimingFromDb();
+        startDrawTimer();
+      }
       if (typeof window.maybeShowIntroModal === 'function') {
         try {
           window.maybeShowIntroModal();
