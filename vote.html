@@ -429,8 +429,14 @@
     let voteRoundEnd   = null;
 
     let timerIntervalId = null;
-    let timerLastSyncAt = 0;
-    let autoFinalized   = false;
+    let pendingResultReloadTimeoutId = null;
+    let lastVisibilityRefreshAt = 0;
+
+    // Таймер больше не опрашивает Supabase каждые несколько секунд.
+    // Истина — vote_round_end_at в базе, экранный отсчёт — локальный.
+    // Фоновая финализация выполняется cron-задачей в Supabase.
+    const RESULT_RELOAD_DELAY_MS = 70 * 1000;
+    const RESULT_RELOAD_RETRY_MS = 60 * 1000;
 
     let isAdminForVoting = false;
     let adminUiBound     = false;
@@ -931,37 +937,36 @@ async function loadFrames() {
       return `${mm}:${ss}`;
     }
 
-    // регулярно подтягиваем серию из базы именно для таймера
-    async function syncSeriesForTimer() {
-      if (!seriesId) return;
-
-      // запоминаем, что у нас было ДО запроса
-      const prevState = voteState;
-
-      try {
-        const { data, error } = await supabaseClient
-          .from("series")
-          .select("id, title, vote_state, vote_round_start_at, vote_round_end_at, vote_round_id")
-          .eq("id", seriesId)
-          .single();
-
-        if (error || !data) {
-          console.warn("[vote] timer sync error:", error || "no data");
-          return;
-        }
-
-        // обновляем текущую серию и voteState/voteRoundEnd
-        applySeriesRow(data);
-        timerLastSyncAt = Date.now();
-
-        // если раунд был active, а стал не active — сервер уже всё посчитал
-        if (prevState === "active" && voteState !== "active") {
-          console.log("[vote] round finished on server, reloadAll()");
-          await reloadAll();    // перерисовываем кадры, статус и т.д.
-        }
-      } catch (e) {
-        console.warn("[vote] timer sync failed:", e);
+    function clearPendingResultReload() {
+      if (pendingResultReloadTimeoutId != null) {
+        clearTimeout(pendingResultReloadTimeoutId);
+        pendingResultReloadTimeoutId = null;
       }
+    }
+
+    function schedulePendingResultReload(delayMs = RESULT_RELOAD_DELAY_MS) {
+      if (pendingResultReloadTimeoutId != null) return;
+
+      pendingResultReloadTimeoutId = setTimeout(async () => {
+        pendingResultReloadTimeoutId = null;
+
+        // Cron завершает раунд в фоне. Открытая страница делает только редкую
+        // контрольную перезагрузку после истечения, без постоянного polling.
+        if (!seriesId || voteState !== "active") return;
+
+        try {
+          console.log("[vote] expired timer fallback reloadAll()");
+          await reloadAll();
+
+          // Если cron ещё не успел отработать, повторяем редко, а не каждые 3 секунды.
+          if (voteState === "active" && voteRoundEnd && voteRoundEnd.getTime() <= Date.now()) {
+            schedulePendingResultReload(RESULT_RELOAD_RETRY_MS);
+          }
+        } catch (e) {
+          console.warn("[vote] expired timer fallback failed:", e);
+          schedulePendingResultReload(RESULT_RELOAD_RETRY_MS);
+        }
+      }, delayMs);
     }
 
     function startTimerLoop() {
@@ -973,14 +978,9 @@ async function loadFrames() {
         clearInterval(timerIntervalId);
         timerIntervalId = null;
       }
-      timerLastSyncAt = 0;
+      clearPendingResultReload();
 
-      const tick = async () => {
-        // раз в 3 секунды поднимаем актуальное состояние раунда с сервера
-        if (!timerLastSyncAt || Date.now() - timerLastSyncAt > 3000) {
-          await syncSeriesForTimer();
-        }
-
+      const tick = () => {
         // если сервер ещё не выдал время окончания — показываем «—:—»
         if (!voteRoundEnd) {
           timerEl.textContent = "—:—";
@@ -991,6 +991,7 @@ async function loadFrames() {
         // если сервер уже перевёл раунд из active в другое состояние —
         // просто показываем 00:00 и статус по состоянию
         if (voteState !== "active") {
+          clearPendingResultReload();
           timerEl.textContent = "00:00";
           setVoteStatus(baseStatusByState());
           return;
@@ -1002,6 +1003,7 @@ async function loadFrames() {
         if (remaining <= 0) {
           timerEl.textContent = "00:00";
           setVoteStatus("Подводим итоги…");
+          schedulePendingResultReload();
           return;
         }
 
@@ -1048,7 +1050,6 @@ async function loadFrames() {
 
         console.log("[vote][adminSetRemaining] RPC OK:", row);
         applySeriesRow(row);
-        autoFinalized = false;
         startTimerLoop();
         broadcastRoundUpdated();
       } catch (e) {
@@ -1167,16 +1168,17 @@ async function loadFrames() {
             filter: `id=eq.${seriesId}`,
           },
           async (payload) => {
-            const oldState = payload?.old?.vote_state;
-            const newState = payload?.new?.vote_state;
+            const oldRow = payload?.old || {};
+            const newRow = payload?.new || {};
 
-            if (oldState !== newState) {
-              console.log(
-                "[vote] realtime series status changed:",
-                oldState,
-                "→",
-                newState
-              );
+            const importantChanged =
+              oldRow.vote_state !== newRow.vote_state ||
+              oldRow.vote_round_end_at !== newRow.vote_round_end_at ||
+              oldRow.vote_round_start_at !== newRow.vote_round_start_at ||
+              oldRow.vote_round_id !== newRow.vote_round_id;
+
+            if (importantChanged) {
+              console.log("[vote] realtime series round changed, reloadAll()");
               await reloadAll(); // перерисовываем кадры/результат/кнопки
             }
           }
@@ -1207,6 +1209,19 @@ async function loadFrames() {
       updateEmptyMessage();
     }
 
+    async function refreshOnReturnToTab() {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastVisibilityRefreshAt < 15000) return;
+      lastVisibilityRefreshAt = now;
+
+      try {
+        await reloadAll();
+      } catch (e) {
+        console.warn("[vote] visibility refresh failed:", e);
+      }
+    }
+
     // === Старт страницы ===
     document.addEventListener("DOMContentLoaded", async () => {
       initImageModal();
@@ -1226,6 +1241,8 @@ async function loadFrames() {
       window.addEventListener("admin:disabled", async () => {
         await refreshAdminUi();
       });
+
+      document.addEventListener("visibilitychange", refreshOnReturnToTab);
     });
   </script>
 </head>
