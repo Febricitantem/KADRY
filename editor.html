@@ -1450,6 +1450,11 @@ const desc = (inpDesc.value || '').trim();
       }
     }
 
+    // Делаем функцию доступной из консоли браузера для ручной проверки:
+    // typeof runStorageDeleteQueue -> "function"
+    // await runStorageDeleteQueue(100)
+    window.runStorageDeleteQueue = runStorageDeleteQueue;
+
     window.saveFrameToSeries = async function (seriesId, supabase) {
       if (saving) return;
       setSaving(true);
@@ -1551,8 +1556,8 @@ try {
     rpcOk = true;
 
     // Физически удаляем PNG проигравших, которые SQL положил в очередь.
-    // Ошибка очистки не должна ломать сохранение кадра и запуск голосования.
-    await runStorageDeleteQueue(100);
+    // Запускаем неблокирующе: очистка Storage не должна задерживать переход к голосованию.
+    runStorageDeleteQueue(100);
   }
 
 } catch (e) {
