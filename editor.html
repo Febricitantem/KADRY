@@ -1391,6 +1391,65 @@ const desc = (inpDesc.value || '').trim();
       }
     }
 
+
+    async function runStorageDeleteQueue(limit = 100) {
+      try {
+        const { data: rows, error: queueError } = await supabase.rpc(
+          'kadry_get_pending_storage_deletes',
+          { p_limit: limit }
+        );
+
+        if (queueError) {
+          console.warn('[kadry] storage delete queue read failed:', queueError);
+          return;
+        }
+
+        if (!Array.isArray(rows) || rows.length === 0) return;
+
+        const byBucket = new Map();
+
+        for (const row of rows) {
+          if (!row || !row.bucket || !row.object_name) continue;
+          if (!byBucket.has(row.bucket)) byBucket.set(row.bucket, []);
+          byBucket.get(row.bucket).push(row);
+        }
+
+        for (const [bucket, items] of byBucket.entries()) {
+          const ids = items
+            .map((item) => Number(item.id))
+            .filter((id) => Number.isFinite(id));
+          const paths = items
+            .map((item) => item.object_name)
+            .filter(Boolean);
+
+          if (!ids.length || !paths.length) continue;
+
+          const { error: removeError } = await supabase.storage
+            .from(bucket)
+            .remove(paths);
+
+          if (removeError) {
+            console.warn('[kadry] storage remove failed:', removeError);
+            await supabase.rpc('kadry_mark_storage_delete_failed', {
+              p_ids: ids,
+              p_error: removeError.message || String(removeError)
+            });
+            continue;
+          }
+
+          const { error: markError } = await supabase.rpc('kadry_mark_storage_deleted', {
+            p_ids: ids
+          });
+
+          if (markError) {
+            console.warn('[kadry] storage delete mark failed:', markError);
+          }
+        }
+      } catch (err) {
+        console.warn('[kadry] storage cleanup crashed:', err);
+      }
+    }
+
     window.saveFrameToSeries = async function (seriesId, supabase) {
       if (saving) return;
       setSaving(true);
@@ -1490,6 +1549,10 @@ try {
     console.error('RPC voting_extend_round error:', fnError);
   } else {
     rpcOk = true;
+
+    // Физически удаляем PNG проигравших, которые SQL положил в очередь.
+    // Ошибка очистки не должна ломать сохранение кадра и запуск голосования.
+    await runStorageDeleteQueue(100);
   }
 
 } catch (e) {
