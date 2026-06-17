@@ -28,7 +28,7 @@
     .profile-title{font-size:32px;font-weight:900;margin:0 0 4px;line-height:1.05;}
     .profile-sub{color:var(--muted);font-size:14px;display:flex;gap:10px;flex-wrap:wrap;}
     .profile-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0;}
     .stat{background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;text-align:center;}
     .stat b{display:block;font-size:24px;}
     .stat span{color:var(--muted);font-size:13px;}
@@ -121,6 +121,8 @@
       <div class="stat"><b id="stat-series">0</b><span>начатых серий</span></div>
       <div class="stat"><b id="stat-frames">0</b><span>кадров автора</span></div>
       <div class="stat"><b id="stat-comments">0</b><span>комментариев</span></div>
+      <div class="stat"><b id="stat-likes">0</b><span>лайков</span></div>
+      <div class="stat"><b id="stat-dislikes">0</b><span>дизлайков</span></div>
     </section>
 
     <div id="content-grid" class="grid" style="display:none">
@@ -426,6 +428,30 @@
   }
 
 
+
+  async function loadReactionTotals(seq){
+    const likesEl = el('stat-likes');
+    const dislikesEl = el('stat-dislikes');
+    if(likesEl) likesEl.textContent = '0';
+    if(dislikesEl) dislikesEl.textContent = '0';
+    if(!profileId) return;
+
+    try{
+      const { data, error } = await sb
+        .from('profile_reaction_totals')
+        .select('profile_id,likes_count,dislikes_count')
+        .eq('profile_id', profileId)
+        .maybeSingle();
+      if(!isFreshLoad(seq)) return;
+      if(error){ console.warn('[profile] profile_reaction_totals load error', error); return; }
+      if(likesEl) likesEl.textContent = Number(data && data.likes_count ? data.likes_count : 0) || 0;
+      if(dislikesEl) dislikesEl.textContent = Number(data && data.dislikes_count ? data.dislikes_count : 0) || 0;
+    }catch(e){
+      if(!isFreshLoad(seq)) return;
+      console.warn('[profile] profile_reaction_totals load failed', e);
+    }
+  }
+
   async function loadCommentsByAuthor(seq){
     const box = el('comments-list');
     const { data, error, count } = await sb
@@ -490,7 +516,7 @@
       fillEditForm(currentProfile);
       el('stats').style.display = 'grid';
       el('content-grid').style.display = 'grid';
-      await Promise.all([loadSeriesStarted(seq), loadFramesByAuthor(seq), loadCommentsByAuthor(seq)]);
+      await Promise.all([loadSeriesStarted(seq), loadFramesByAuthor(seq), loadCommentsByAuthor(seq), loadReactionTotals(seq)]);
     }catch(e){
       if(!isFreshLoad(seq)) return;
       console.error(e);

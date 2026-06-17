@@ -171,6 +171,48 @@
       margin:8px auto 0;
       min-height:20px;
     }
+
+    .frame-reactions{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      margin:10px auto 2px;
+      min-height:34px;
+      color:#475569;
+      font-size:14px;
+    }
+    .reaction-btn{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border:1px solid #d1d5db;
+      border-radius:999px;
+      background:#fff;
+      color:#0f172a;
+      cursor:pointer;
+      font:inherit;
+      font-weight:800;
+      line-height:1;
+    }
+    .reaction-btn:hover{
+      background:#f8fafc;
+      border-color:#94a3b8;
+    }
+    .reaction-btn.is-active{
+      background:#e0f2fe;
+      border-color:#38bdf8;
+      color:#075985;
+    }
+    .reaction-btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+    .reaction-hint{
+      color:#64748b;
+      font-size:12px;
+    }
     .author-link{
       color:#0f172a;
       font-weight:700;
@@ -463,6 +505,7 @@
         />
       </div>
       <div id="frame-author" class="frame-author-line"></div>
+      <div id="frame-reactions" class="frame-reactions" aria-live="polite"></div>
     </div>
 
 
@@ -669,6 +712,7 @@ startTitleLoading();
   var loaderEl = document.getElementById('frame-loader');
   var seriesAuthorEl = document.getElementById('series-author');
   var frameAuthorEl = document.getElementById('frame-author');
+  var reactionsEl = document.getElementById('frame-reactions');
   var posEl   = document.getElementById('pos-label');
   var firstBtn= document.getElementById('first-btn');
   var prevBtn = document.getElementById('prev-btn');
@@ -715,6 +759,9 @@ function syncAdminUI(){
   var activePlaceholder = null;
   var currentSeriesRow = null;
   var profileCache = {};
+  var reactionCounts = {};
+  var myReactions = {};
+  var reactionLoadToken = 0;
 
   function compactAuthorName(profile, fallback){
     if(profile){
@@ -823,6 +870,143 @@ function syncAdminUI(){
     target.appendChild(chip);
   }
 
+
+
+  function emptyReactionCounts(){
+    return { likes_count: 0, dislikes_count: 0 };
+  }
+
+  function normalizeReactionCounts(row){
+    return {
+      likes_count: Number(row && row.likes_count ? row.likes_count : 0) || 0,
+      dislikes_count: Number(row && row.dislikes_count ? row.dislikes_count : 0) || 0
+    };
+  }
+
+  async function loadFrameReactions(frameIds){
+    frameIds = Array.from(new Set((frameIds || []).filter(Boolean)));
+    reactionCounts = {};
+    myReactions = {};
+    if(!frameIds.length) return;
+
+    var token = ++reactionLoadToken;
+
+    try{
+      var countsRes = await supabase
+        .from('frame_reaction_counts')
+        .select('frame_id,likes_count,dislikes_count')
+        .in('frame_id', frameIds);
+      if(countsRes.error){
+        console.warn('frame_reaction_counts load error', countsRes.error);
+      }else{
+        (countsRes.data || []).forEach(function(row){
+          reactionCounts[row.frame_id] = normalizeReactionCounts(row);
+        });
+      }
+    }catch(e){
+      console.warn('frame_reaction_counts load failed', e);
+    }
+
+    try{
+      var state = await getKadryAuthState();
+      var user = state && state.user;
+      if(user && user.id){
+        var myRes = await supabase
+          .from('frame_my_reactions')
+          .select('frame_id,value')
+          .in('frame_id', frameIds);
+        if(myRes.error){
+          console.warn('frame_my_reactions load error', myRes.error);
+        }else{
+          (myRes.data || []).forEach(function(row){
+            myReactions[row.frame_id] = Number(row.value) || 0;
+          });
+        }
+      }
+    }catch(e){
+      console.warn('frame_my_reactions load failed', e);
+    }
+
+    if(token === reactionLoadToken && committedFrames[current]){
+      renderFrameReactions(committedFrames[current]);
+    }
+  }
+
+  function renderFrameReactions(frame){
+    if(!reactionsEl) return;
+    reactionsEl.textContent = '';
+
+    if(!frame || !frame.id){
+      return;
+    }
+
+    var counts = reactionCounts[frame.id] || emptyReactionCounts();
+    var currentValue = myReactions[frame.id] || 0;
+
+    var likeBtn = document.createElement('button');
+    likeBtn.type = 'button';
+    likeBtn.className = 'reaction-btn' + (currentValue === 1 ? ' is-active' : '');
+    likeBtn.title = currentValue === 1 ? 'Снять лайк' : 'Поставить лайк';
+    likeBtn.setAttribute('aria-pressed', currentValue === 1 ? 'true' : 'false');
+    likeBtn.innerHTML = '<span aria-hidden="true">▲</span><span>' + counts.likes_count + '</span>';
+    likeBtn.addEventListener('click', function(){ setFrameReaction(frame.id, 1); });
+
+    var dislikeBtn = document.createElement('button');
+    dislikeBtn.type = 'button';
+    dislikeBtn.className = 'reaction-btn' + (currentValue === -1 ? ' is-active' : '');
+    dislikeBtn.title = currentValue === -1 ? 'Снять дизлайк' : 'Поставить дизлайк';
+    dislikeBtn.setAttribute('aria-pressed', currentValue === -1 ? 'true' : 'false');
+    dislikeBtn.innerHTML = '<span aria-hidden="true">▼</span><span>' + counts.dislikes_count + '</span>';
+    dislikeBtn.addEventListener('click', function(){ setFrameReaction(frame.id, -1); });
+
+    reactionsEl.appendChild(likeBtn);
+    reactionsEl.appendChild(dislikeBtn);
+
+    if(!currentValue){
+      var hint = document.createElement('span');
+      hint.className = 'reaction-hint';
+      hint.textContent = 'Оценка кадра';
+      reactionsEl.appendChild(hint);
+    }
+  }
+
+  async function setFrameReaction(frameId, value){
+    var ok = await requireKadryAuth('Войдите, чтобы оценивать кадры.');
+    if(!ok) return;
+
+    if(!frameId || (value !== 1 && value !== -1)) return;
+
+    var buttons = reactionsEl ? reactionsEl.querySelectorAll('.reaction-btn') : [];
+    buttons.forEach(function(btn){ btn.disabled = true; });
+
+    try{
+      var res = await supabase.rpc('kadry_set_frame_reaction', {
+        p_frame_id: frameId,
+        p_value: value
+      });
+
+      if(res.error){
+        console.error('kadry_set_frame_reaction error', res.error);
+        alert(res.error.message || 'Не удалось сохранить оценку.');
+        return;
+      }
+
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      if(row){
+        reactionCounts[frameId] = normalizeReactionCounts(row);
+        myReactions[frameId] = Number(row.my_value) || 0;
+      }else{
+        await loadFrameReactions([frameId]);
+      }
+      renderFrameReactions(committedFrames[current]);
+    }catch(e){
+      console.error('setFrameReaction failed', e);
+      alert('Не удалось сохранить оценку.');
+    }finally{
+      buttons.forEach(function(btn){ btn.disabled = false; });
+    }
+  }
+
   var signedCache = new Map();
   function getDisplayUrl(storedUrl){
     return new Promise(function(resolve){
@@ -872,6 +1056,7 @@ function syncAdminUI(){
         loaderEl.style.display = 'none';
       }
       if (frameAuthorEl) frameAuthorEl.textContent = '';
+      renderFrameReactions(null);
       posEl.textContent = 'Кадров пока нет';
       firstBtn.disabled = prevBtn.disabled = true;
       nextBtn.disabled  = lastBtn.disabled  = true;
@@ -880,6 +1065,7 @@ function syncAdminUI(){
 
     var frame = committedFrames[current];
     renderAuthorLink(frameAuthorEl, 'Кадр: ', frame.created_by, frame.created_by ? 'Автор' : 'Старый кадр без автора');
+    renderFrameReactions(frame);
 
     // Перед началом загрузки кадра показываем котика и прячем картинку
     if (loaderEl) {
@@ -961,6 +1147,7 @@ function syncAdminUI(){
         .select('id,image_url,order_index,committed,in_vote,created_by')
         .eq('series_id', seriesId)
         .eq('committed', true)
+        .eq('history', false)
         .order('order_index', { ascending:true, nullsFirst:false })
         .order('id', { ascending:true });
 
@@ -970,6 +1157,7 @@ function syncAdminUI(){
       committedFrames = (fr && fr.data) ? fr.data : [];
       current = Math.max(0, committedFrames.length - 1);
       await loadPublicProfiles(committedFrames.map(function(f){ return f.created_by; }));
+      await loadFrameReactions(committedFrames.map(function(f){ return f.id; }));
       await renderStage();
       loadComments(true);
     }catch(e){
