@@ -170,6 +170,58 @@
       cursor: zoom-in;
     }
 
+    .frame-author-line {
+      margin-top: 9px;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .vote-author-avatar {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      border-radius: 9px;
+      border: 1px solid #cbd5e1;
+      background: #e2e8f0;
+      color: #334155;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      box-sizing: border-box;
+    }
+
+    .vote-author-avatar img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .vote-author-link {
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #0f172a;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .vote-author-link:hover {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+
     .controls {
       display: grid;
       grid-template-columns: 48px 1fr 48px;
@@ -346,6 +398,30 @@
       background: #020617;
       border: 1px solid rgba(148,163,184,0.7);
     }
+    .image-modal-author {
+      margin: 10px auto 0;
+      padding: 9px 12px;
+      width: fit-content;
+      max-width: min(560px, 92vw);
+      border-radius: 14px;
+      background: rgba(15,23,42,0.88);
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.45);
+    }
+
+    .image-modal-author .vote-author-link {
+      color: #f8fafc;
+      max-width: 320px;
+    }
+
+    .image-modal-author .vote-author-link:hover {
+      color: #93c5fd;
+    }
     .image-modal-close {
       position: absolute;
       top: 8px;
@@ -452,6 +528,8 @@
     const RESULT_RELOAD_RETRY_MS = 60 * 1000;
 
     let isAdminForVoting = false;
+    let isLoggedInForVoting = false;
+    let currentAuthState = null;
     let adminUiBound     = false;
 
     // голоса гостей внутри вкладки (доп. защита к RLS)
@@ -483,6 +561,142 @@
       }
     }
 
+    async function refreshVoteAuthState() {
+      if (typeof window.kadryGetAuthState === "function") {
+        currentAuthState = await window.kadryGetAuthState();
+      } else {
+        try {
+          const r = await supabaseClient.auth.getSession();
+          currentAuthState = { user: r?.data?.session?.user || null, profile: null, isAdmin: false };
+        } catch (_) {
+          currentAuthState = { user: null, profile: null, isAdmin: false };
+        }
+      }
+      isLoggedInForVoting = !!(currentAuthState && currentAuthState.user);
+      return currentAuthState;
+    }
+
+    async function requireVoteAuth() {
+      if (typeof window.kadryRequireAuth === "function") {
+        const ok = await window.kadryRequireAuth("Войдите, чтобы голосовать.");
+        if (ok) await refreshVoteAuthState();
+        return ok;
+      }
+      await refreshVoteAuthState();
+      return isLoggedInForVoting;
+    }
+
+    const profileCache = {};
+
+    function cleanProfileText(value) {
+      return String(value || "").trim().replace(/\s+/g, " " );
+    }
+
+    function compactAuthorName(profile, fallback) {
+      if (profile) {
+        const dn = cleanProfileText(profile.display_name);
+        if (dn) return dn;
+        const un = cleanProfileText(profile.username);
+        if (un) return un;
+      }
+      return fallback || "Автор не указан";
+    }
+
+    function normalizeProfileLink(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function isValidProfileLink(value) {
+      return /^[a-z][a-z0-9]{2,31}$/.test(normalizeProfileLink(value));
+    }
+
+    function makeProfileHref(userId) {
+      const profile = userId ? profileCache[userId] : null;
+      const username = normalizeProfileLink(profile && profile.username);
+      if (username && isValidProfileLink(username)) return "profile.html?u=" + encodeURIComponent(username);
+      return userId ? "profile.html?id=" + encodeURIComponent(userId) : "profile.html";
+    }
+
+    async function loadPublicProfiles(ids) {
+      ids = (ids || []).filter((id) => !!id && !profileCache[id]);
+      ids = Array.from(new Set(ids));
+      if (!ids.length) return;
+      try {
+        const r = await supabaseClient
+          .from("public_profiles")
+          .select("id,username,display_name,avatar_url,created_at")
+          .in("id", ids);
+        if (r.error) {
+          console.warn("[vote] public_profiles load error:", r.error);
+          return;
+        }
+        (r.data || []).forEach((p) => { profileCache[p.id] = p; });
+      } catch (e) {
+        console.warn("[vote] public_profiles load failed:", e);
+      }
+    }
+
+    function authorInitial(profile, fallback) {
+      const name = compactAuthorName(profile, fallback || "Автор");
+      return String(name || "А").trim().charAt(0).toUpperCase() || "А";
+    }
+
+    function makeAuthorAvatar(userId, fallback) {
+      const profile = userId ? profileCache[userId] : null;
+      const name = compactAuthorName(profile, fallback || "Автор не указан");
+      const node = userId ? document.createElement("a") : document.createElement("span");
+      node.className = "vote-author-avatar";
+      if (userId) {
+        node.href = makeProfileHref(userId);
+        node.title = "Открыть профиль " + name;
+        node.setAttribute("aria-label", "Открыть профиль " + name);
+      } else {
+        node.title = name;
+      }
+      const url = profile && profile.avatar_url ? String(profile.avatar_url).trim() : "";
+      if (url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = name;
+        node.appendChild(img);
+      } else {
+        node.textContent = authorInitial(profile, fallback);
+      }
+      return node;
+    }
+
+    function makeAuthorLink(userId, fallback) {
+      const profile = userId ? profileCache[userId] : null;
+      const name = compactAuthorName(profile, fallback || "Автор не указан");
+      if (!userId) {
+        const span = document.createElement("span");
+        span.className = "vote-author-link";
+        span.textContent = name;
+        return span;
+      }
+      const a = document.createElement("a");
+      a.className = "vote-author-link";
+      a.href = makeProfileHref(userId);
+      a.textContent = name;
+      a.title = "Открыть профиль";
+      a.setAttribute("aria-label", "Открыть профиль " + name);
+      return a;
+    }
+
+    function renderAuthorBlock(target, frame, prefix) {
+      if (!target) return;
+      const userId = frame && frame.created_by;
+      const fallback = userId ? "Автор" : "Старый кадр без автора";
+      target.textContent = "";
+      if (prefix) {
+        const label = document.createElement("span");
+        label.textContent = prefix;
+        target.appendChild(label);
+      }
+      target.appendChild(makeAuthorAvatar(userId, fallback));
+      target.appendChild(makeAuthorLink(userId, fallback));
+    }
+
     // === подпись под таймером ===
     function setVoteStatus(text) {
       const el = document.getElementById("vote-status");
@@ -498,11 +712,12 @@
     }
 
     // === Модалка изображения ===
-    let imageModal, imageModalImg, imageModalClose;
+    let imageModal, imageModalImg, imageModalClose, imageModalAuthor;
     function initImageModal() {
       imageModal      = document.getElementById("image-modal");
       imageModalImg   = document.getElementById("image-modal-img");
       imageModalClose = document.getElementById("image-modal-close");
+      imageModalAuthor = document.getElementById("image-modal-author");
 
       if (imageModalClose) {
         imageModalClose.addEventListener("click", closeImageModal);
@@ -516,16 +731,20 @@
         if (e.key === "Escape" || e.key === "Esc") closeImageModal();
       });
     }
-    function openImageModal(src, alt) {
+    function openImageModal(src, alt, frame) {
       if (!imageModal || !imageModalImg || !src) return;
       imageModalImg.src = src;
       imageModalImg.alt = alt || "Кадр";
+      if (imageModalAuthor) {
+        renderAuthorBlock(imageModalAuthor, frame || null, "Автор: " );
+      }
       imageModal.style.display = "flex";
       document.body.style.overflow = "hidden";
     }
     function closeImageModal() {
       if (!imageModal) return;
       imageModal.style.display = "none";
+      if (imageModalAuthor) imageModalAuthor.textContent = "";
       document.body.style.overflow = "";
     }
 
@@ -653,6 +872,7 @@ async function loadFrames() {
   }
 
   frames = data || [];
+  await loadPublicProfiles(frames.map((frame) => frame.created_by));
 }
 
 
@@ -689,6 +909,10 @@ async function loadFrames() {
     // === Загрузка голосов текущего пользователя ===
     async function loadUserVotes() {
       if (!currentSeries || !currentSeries.vote_round_id) return;
+      if (!isLoggedInForVoting) {
+        votedFrames.clear();
+        return;
+      }
 
       const anonId = getAnonId();
       if (!anonId) return;
@@ -759,9 +983,14 @@ async function loadFrames() {
         img.src = url || "";
         img.alt = "Кадр #" + frame.id;
         img.addEventListener("click", () => {
-          if (url) openImageModal(url, img.alt);
+          if (url) openImageModal(url, img.alt, frame);
         });
         div.appendChild(img);
+
+        const author = document.createElement("div");
+        author.className = "frame-author-line";
+        renderAuthorBlock(author, frame, "Автор: " );
+        div.appendChild(author);
 
         const controls = document.createElement("div");
         controls.className = "controls";
@@ -822,7 +1051,16 @@ async function loadFrames() {
       return; // обработчик не нужен
     }
 
-        // 🔒 Если гость уже голосовал за этот кадр — блокируем кнопку
+        // Гость может смотреть голосование, но не может голосовать.
+        if (!isAdminForVoting && !isLoggedInForVoting) {
+          btn.disabled = false;
+          btn.classList.add("kadry-auth-required");
+          btn.title = "Войдите, чтобы голосовать";
+          btn.onclick = async () => { await requireVoteAuth(); };
+          return;
+        }
+
+        // 🔒 Если пользователь уже голосовал за этот кадр — блокируем кнопку
         // Если админ — ВСЕГДА разблокировано
         if (isAdminForVoting) {
           btn.disabled = false;
@@ -834,6 +1072,11 @@ async function loadFrames() {
           const val = Number(btn.dataset.v);
 
           if (!currentSeries) return;
+
+          if (!isAdminForVoting) {
+            const ok = await requireVoteAuth();
+            if (!ok) return;
+          }
 
           if (voteState !== "active") {
             console.warn("[vote] голосование не активно");
@@ -1032,6 +1275,7 @@ async function loadFrames() {
 
     // === Админский таймер и кнопка "Подвести итог" ===
     async function detectAdmin() {
+      await refreshVoteAuthState();
       let admin = false;
       if (typeof window.isAdmin === "function") {
         try { admin = await window.isAdmin(); } catch (e) {
@@ -1204,6 +1448,7 @@ async function loadFrames() {
        async function reloadAll() {
       await loadSeries();
       await loadFrames();      // 1 — загружаем кадры
+      await refreshVoteAuthState();
 
       // Если раунд ещё не создан (vote_round_id = NULL),
       // не показываем стартовый кадр в сетке голосования
@@ -1240,6 +1485,14 @@ async function loadFrames() {
       initImageModal();
       await checkSiteOpen();
 
+      const addFrameLink = document.getElementById("addFrame");
+      if (addFrameLink) {
+        addFrameLink.addEventListener("click", async (e) => {
+          e.preventDefault();
+          if (await requireVoteAuth()) window.location.href = addFrameLink.href;
+        });
+      }
+
       // инициализируем каналы
       initBroadcastChannel();
       initSeriesRealtime();
@@ -1274,6 +1527,7 @@ async function loadFrames() {
     <div class="image-modal-inner">
       <button type="button" id="image-modal-close" class="image-modal-close">×</button>
       <img id="image-modal-img" class="image-modal-img" alt="Просмотр кадра">
+      <div id="image-modal-author" class="image-modal-author"></div>
     </div>
   </div>
 

@@ -151,6 +151,74 @@
       text-align:center;
       font-weight:700
     }
+    .author-line{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:6px;
+      color:#64748b;
+      font-size:14px;
+      margin:-8px 0 14px;
+      min-height:20px;
+    }
+    .frame-author-line{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:6px;
+      color:#64748b;
+      font-size:13px;
+      margin:8px auto 0;
+      min-height:20px;
+    }
+    .author-link{
+      color:#0f172a;
+      font-weight:700;
+      text-decoration:none;
+      cursor:pointer;
+      position:relative;
+      z-index:2;
+      pointer-events:auto;
+    }
+    .author-link:hover{
+      color:#2563eb;
+      text-decoration:underline;
+    }
+    .author-chip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      min-width:0;
+    }
+    .author-avatar{
+      width:28px;
+      height:28px;
+      min-width:28px;
+      border-radius:8px;
+      border:1px solid #cbd5e1;
+      background:#e2e8f0;
+      color:#334155;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      line-height:1;
+      box-sizing:border-box;
+    }
+    .author-avatar img{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;
+    }
+    .author-avatar:hover{
+      border-color:#94a3b8;
+      box-shadow:0 2px 8px rgba(15,23,42,.14);
+    }
 
     /* Низ страницы */
     .bottom{
@@ -229,8 +297,34 @@
       position:relative;
       border:1px solid #e5e7eb;
       border-radius:10px;
-      padding:8px 10px
+      padding:8px 10px;
+      display:grid;
+      grid-template-columns:36px 1fr;
+      column-gap:10px;
+      align-items:start;
     }
+    .comment-avatar{
+      grid-column:1;
+      grid-row:1 / span 2;
+      width:34px;
+      height:34px;
+      min-width:34px;
+      border-radius:10px;
+      border:1px solid #cbd5e1;
+      background:#e2e8f0;
+      color:#334155;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      text-decoration:none;
+      font-size:14px;
+      font-weight:900;
+      line-height:1;
+      box-sizing:border-box;
+    }
+    .comment-avatar img{width:100%;height:100%;display:block;object-fit:cover;}
+    .comment-avatar:hover{border-color:#94a3b8;box-shadow:0 2px 8px rgba(15,23,42,.14);}
     .comment .del-btn{
       position:absolute;
       top:6px;
@@ -250,11 +344,14 @@
       transform:scale(1.05)
     }
     .comment .meta{
+      grid-column:2;
       font-size:12px;
       color:#64748b;
-      margin-bottom:6px
+      margin-bottom:6px;
+      padding-right:24px;
     }
     .comment .body{
+      grid-column:2;
       white-space:pre-wrap
     }
     .comment-form{
@@ -346,6 +443,7 @@
 
   <div class="wrap">
     <h1 id="series-title">Загрузка</h1>
+    <div id="series-author" class="author-line"></div>
 
     <div class="stage">
       <div class="viewport">
@@ -364,6 +462,7 @@
           class="frame-img is-hidden"
         />
       </div>
+      <div id="frame-author" class="frame-author-line"></div>
     </div>
 
 
@@ -407,7 +506,6 @@
       <div id="comment-list" class="comment-list"></div>
       <form id="comment-form" class="comment-form">
         <div style="display:flex;flex-direction:column;gap:8px">
-          <input id="c-name" type="text" placeholder="Ваше имя (необязательно)" />
           <textarea id="c-text" placeholder="Напишите что-нибудь…"></textarea>
         </div>
         <button class="btn primary" type="submit">Опубликовать</button>
@@ -441,6 +539,37 @@
     return client;
   })();
 
+  async function getKadryAuthState(){
+    if (typeof window.kadryGetAuthState === 'function') {
+      return await window.kadryGetAuthState();
+    }
+    try {
+      var r = await supabase.auth.getSession();
+      var user = r && r.data && r.data.session && r.data.session.user;
+      return { user: user || null, profile: null, isAdmin: false };
+    } catch (_) {
+      return { user: null, profile: null, isAdmin: false };
+    }
+  }
+
+  async function requireKadryAuth(message){
+    if (typeof window.kadryRequireAuth === 'function') {
+      return await window.kadryRequireAuth(message);
+    }
+    var state = await getKadryAuthState();
+    return !!(state && state.user);
+  }
+
+  function displayNameFromAuth(state){
+    var user = state && state.user;
+    var profile = state && state.profile;
+    var local = '';
+    if (user && user.email && user.email.indexOf('@') !== -1) local = String(user.email).split('@')[0].toLowerCase();
+    var display = profile && profile.display_name ? String(profile.display_name).trim() : '';
+    if (display && (!local || display.toLowerCase() !== local)) return display;
+    if (profile && profile.username && String(profile.username).trim()) return String(profile.username).trim();
+    return 'Игрок';
+  }
 
   async function checkSiteOpen(){
     try{
@@ -537,8 +666,9 @@ startTitleLoading();
   var descSave = document.getElementById('desc-save');
   var descCancel = document.getElementById('desc-cancel');
   var imgEl    = document.getElementById('frame-img');
-  var loaderEl = document.getElementById('frame-loader');  
-  var posEl    = document.getElementById('pos-label');
+  var loaderEl = document.getElementById('frame-loader');
+  var seriesAuthorEl = document.getElementById('series-author');
+  var frameAuthorEl = document.getElementById('frame-author');
   var posEl   = document.getElementById('pos-label');
   var firstBtn= document.getElementById('first-btn');
   var prevBtn = document.getElementById('prev-btn');
@@ -583,6 +713,115 @@ function syncAdminUI(){
     'Если вы это читаете — значит всё работает.'
   ];
   var activePlaceholder = null;
+  var currentSeriesRow = null;
+  var profileCache = {};
+
+  function compactAuthorName(profile, fallback){
+    if(profile){
+      if(profile.display_name && String(profile.display_name).trim()) return String(profile.display_name).trim();
+      if(profile.username && String(profile.username).trim()) return String(profile.username).trim();
+    }
+    return fallback || 'Автор не указан';
+  }
+
+  function authorInitial(profile, fallback){
+    var name = compactAuthorName(profile, fallback || 'Автор');
+    return String(name || 'А').trim().charAt(0).toUpperCase() || 'А';
+  }
+
+  function authorAvatarNode(userId, fallback, className){
+    var profile = userId ? profileCache[userId] : null;
+    var name = compactAuthorName(profile, fallback || 'Автор');
+    var node = userId ? document.createElement('a') : document.createElement('span');
+    node.className = className || 'author-avatar';
+    if(userId){
+      node.href = makeProfileHref(userId);
+      node.title = 'Открыть профиль ' + name;
+      node.setAttribute('aria-label', 'Открыть профиль ' + name);
+      node.addEventListener('click', function(e){ forceProfileOpen(e, userId); });
+    }else{
+      node.title = name;
+    }
+
+    var url = profile && profile.avatar_url ? String(profile.avatar_url).trim() : '';
+    if(url){
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = name;
+      node.appendChild(img);
+    }else{
+      node.textContent = authorInitial(profile, fallback);
+    }
+    return node;
+  }
+
+  function normalizeProfileLink(value){
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function isValidProfileLink(value){
+    return /^[a-z][a-z0-9]{2,31}$/.test(normalizeProfileLink(value));
+  }
+
+  function makeProfileHref(userId){
+    var profile = userId ? profileCache[userId] : null;
+    var username = normalizeProfileLink(profile && profile.username);
+    if(username && isValidProfileLink(username)) return 'profile.html?u=' + encodeURIComponent(username);
+    return 'profile.html?id=' + encodeURIComponent(userId);
+  }
+
+  function forceProfileOpen(e, userId){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    if(userId) window.location.href = makeProfileHref(userId);
+  }
+
+  async function loadPublicProfiles(ids){
+    ids = (ids || []).filter(function(id){ return !!id && !profileCache[id]; });
+    ids = Array.from(new Set(ids));
+    if(!ids.length) return;
+    try{
+      var r = await supabase
+        .from('public_profiles')
+        .select('id,username,display_name,avatar_url,created_at')
+        .in('id', ids);
+      if(r.error){ console.warn('public_profiles load error', r.error); return; }
+      (r.data || []).forEach(function(p){ profileCache[p.id] = p; });
+    }catch(e){
+      console.warn('public_profiles load failed', e);
+    }
+  }
+
+  function renderAuthorLink(target, label, userId, fallback){
+    if(!target) return;
+    var profile = userId ? profileCache[userId] : null;
+    var name = compactAuthorName(profile, fallback);
+    target.textContent = '';
+    if(label){
+      var prefix = document.createElement('span');
+      prefix.textContent = label;
+      target.appendChild(prefix);
+    }
+
+    var chip = document.createElement('span');
+    chip.className = 'author-chip';
+    chip.appendChild(authorAvatarNode(userId, fallback, 'author-avatar'));
+
+    if(userId){
+      var a = document.createElement('a');
+      a.className = 'author-link';
+      a.href = makeProfileHref(userId);
+      a.textContent = name;
+      a.title = 'Открыть профиль';
+      a.setAttribute('aria-label', 'Открыть профиль ' + name);
+      a.addEventListener('click', function(e){ forceProfileOpen(e, userId); });
+      chip.appendChild(a);
+    }else{
+      var span = document.createElement('span');
+      span.textContent = name;
+      chip.appendChild(span);
+    }
+    target.appendChild(chip);
+  }
 
   var signedCache = new Map();
   function getDisplayUrl(storedUrl){
@@ -632,6 +871,7 @@ function syncAdminUI(){
       if (loaderEl) {
         loaderEl.style.display = 'none';
       }
+      if (frameAuthorEl) frameAuthorEl.textContent = '';
       posEl.textContent = 'Кадров пока нет';
       firstBtn.disabled = prevBtn.disabled = true;
       nextBtn.disabled  = lastBtn.disabled  = true;
@@ -639,6 +879,7 @@ function syncAdminUI(){
     }
 
     var frame = committedFrames[current];
+    renderAuthorLink(frameAuthorEl, 'Кадр: ', frame.created_by, frame.created_by ? 'Автор' : 'Старый кадр без автора');
 
     // Перед началом загрузки кадра показываем котика и прячем картинку
     if (loaderEl) {
@@ -675,75 +916,69 @@ function syncAdminUI(){
   }
 
 
-  function loadSeries(){
-    return supabase
-      .from('series')
-      .select('title, description')
-      .eq('id', seriesId)
-      .maybeSingle()
-      .then(function(r){
-        // останавливаем анимацию в любом случае
-        stopTitleLoading();
+  async function loadSeries(){
+    try{
+      const r = await supabase
+        .from('series')
+        .select('title, description, created_by')
+        .eq('id', seriesId)
+        .maybeSingle();
 
-        if(r.error){
-          console.error('series load error', r.error);
-        }
-        var s = r.data;
-        if(!s){
-          titleEl.textContent = 'Серия';
-          // если серии вообще нет — оставляем "Загрузка описания…" как есть
-          return;
-        }
+      stopTitleLoading();
 
-        titleEl.textContent = s.title || 'Серия';
+      if(r.error){
+        console.error('series load error', r.error);
+      }
+      var s = r.data;
+      currentSeriesRow = s || null;
+      if(!s){
+        titleEl.textContent = 'Серия';
+        return;
+      }
 
-        if (s.description && s.description.trim()) {
-          // В БД есть сохранённое описание
-          activePlaceholder = null;
-          descEl.textContent = s.description;
-          descInput.value = s.description;
-          descInput.defaultValue = s.description;
-        } else {
-          // В БД описания нет — показываем только визуальный плейсхолдер,
-          // в поле ввода он не попадает.
-          activePlaceholder = descriptionPlaceholders[
-            Math.floor(Math.random() * descriptionPlaceholders.length)
-          ];
-          descEl.textContent = activePlaceholder;
-          descInput.value = '';
-          descInput.defaultValue = '';
-        }
+      titleEl.textContent = s.title || 'Серия';
+      await loadPublicProfiles([s.created_by]);
+      renderAuthorLink(seriesAuthorEl, 'Начал: ', s.created_by, s.created_by ? 'Автор' : 'Старые данные без автора');
 
-        syncAdminUI();
-      })
-      .then(function(){
-        return supabase
-          .from('frames')
-          .select('id,image_url,order_index,committed,in_vote')
-          .eq('series_id', seriesId)
-          .eq('committed', true)
-          .order('order_index', { ascending:true, nullsFirst:false })
-          .order('id', { ascending:true });
-      })
-      .then(function(r){
-        if(r && r.error){
-          console.error('frames load error', r.error);
-        }
-        committedFrames = (r && r.data) ? r.data : [];
-        current = Math.max(0, committedFrames.length - 1);
-        return renderStage();
-      })
-      .then(function(){
-        loadComments(true);
-      })
-      .catch(function(e){
-        // на ошибке тоже выключаем "Загрузка..."
-        stopTitleLoading();
-        console.error('loadSeries fatal', e);
-        if (titleEl && (!titleEl.textContent || titleEl.textContent.startsWith('Загрузка'))) {
-          titleEl.textContent = 'Серия';
-        }
-      });
+      if (s.description && s.description.trim()) {
+        activePlaceholder = null;
+        descEl.textContent = s.description;
+        descInput.value = s.description;
+        descInput.defaultValue = s.description;
+      } else {
+        activePlaceholder = descriptionPlaceholders[
+          Math.floor(Math.random() * descriptionPlaceholders.length)
+        ];
+        descEl.textContent = activePlaceholder;
+        descInput.value = '';
+        descInput.defaultValue = '';
+      }
+
+      syncAdminUI();
+
+      const fr = await supabase
+        .from('frames')
+        .select('id,image_url,order_index,committed,in_vote,created_by')
+        .eq('series_id', seriesId)
+        .eq('committed', true)
+        .order('order_index', { ascending:true, nullsFirst:false })
+        .order('id', { ascending:true });
+
+      if(fr && fr.error){
+        console.error('frames load error', fr.error);
+      }
+      committedFrames = (fr && fr.data) ? fr.data : [];
+      current = Math.max(0, committedFrames.length - 1);
+      await loadPublicProfiles(committedFrames.map(function(f){ return f.created_by; }));
+      await renderStage();
+      loadComments(true);
+    }catch(e){
+      stopTitleLoading();
+      console.error('loadSeries fatal', e);
+      if (titleEl && (!titleEl.textContent || titleEl.textContent.startsWith('Загрузка'))) {
+        titleEl.textContent = 'Серия';
+      }
+    }
   }
 
 
@@ -759,7 +994,11 @@ function syncAdminUI(){
     if(e.key==='End')        lastBtn.click();
   });
 
-  document.getElementById('draw-btn').onclick = function(){ location.href = 'editor.html?series='+seriesId; };
+  document.getElementById('draw-btn').onclick = async function(){
+    var ok = await requireKadryAuth('Войдите, чтобы рисовать и отправлять кадры.');
+    if (!ok) return;
+    location.href = 'editor.html?series='+seriesId;
+  };
   document.getElementById('go-to-vote').onclick = function(){ location.href = 'vote.html?series='+seriesId; };
 
   var PAGE_SIZE = 20;
@@ -770,12 +1009,27 @@ function syncAdminUI(){
   function renderComment(c){
     var wrap=document.createElement('div'); wrap.className='comment';
     var del=document.createElement('button'); del.className='del-btn admin-only'; del.innerHTML='✕'; del.title='Удалить'; del.setAttribute('data-id', c.id);
+    var profile = c.user_id ? profileCache[c.user_id] : null;
+    var fallbackName = (c.author_name && c.author_name.trim()) ? c.author_name.trim() : 'Гость';
+    var who=compactAuthorName(profile, fallbackName);
+    var avatar=authorAvatarNode(c.user_id, fallbackName, 'comment-avatar');
     var meta=document.createElement('div'); meta.className='meta';
-    var who=(c.author_name && c.author_name.trim()) ? c.author_name.trim() : 'Гость';
     var when=new Date(c.created_at).toLocaleString();
-    meta.textContent = who+' • '+when;
+    if(c.user_id){
+      var authorLink=document.createElement('a');
+      authorLink.className='author-link';
+      authorLink.href=makeProfileHref(c.user_id);
+      authorLink.textContent=who;
+      authorLink.title='Открыть профиль';
+      authorLink.setAttribute('aria-label', 'Открыть профиль '+who);
+      authorLink.addEventListener('click', function(e){ forceProfileOpen(e, c.user_id); });
+      meta.appendChild(authorLink);
+    }else{
+      meta.appendChild(document.createTextNode(who));
+    }
+    meta.appendChild(document.createTextNode(' • '+when));
     var body=document.createElement('div'); body.className='body'; body.textContent=c.content||'';
-    wrap.appendChild(del); wrap.appendChild(meta); wrap.appendChild(body);
+    wrap.appendChild(del); wrap.appendChild(avatar); wrap.appendChild(meta); wrap.appendChild(body);
     if(!isAdmin) del.style.display='none';
     return wrap;
   }
@@ -787,11 +1041,11 @@ function syncAdminUI(){
     var to   = cmOffset + PAGE_SIZE - 1;
     supabase
       .from('comments')
-      .select('id, author_name, content, created_at', { count: 'exact' })
+      .select('id, author_name, user_id, content, created_at', { count: 'exact' })
       .eq('series_id', seriesId)
       .order('created_at', { ascending: true })
       .range(from, to)
-      .then(function(r){
+      .then(async function(r){
         if(r.error){
           if(reset) listEl.textContent = 'Не удалось загрузить комментарии';
           console.error(r.error);
@@ -799,6 +1053,7 @@ function syncAdminUI(){
         }
         if(cmTotal===null && typeof r.count==='number') cmTotal = r.count;
         var arr = r.data || [];
+        await loadPublicProfiles(arr.map(function(c){ return c.user_id; }));
         for(var i=0;i<arr.length;i++) listEl.appendChild(renderComment(arr[i]));
         cmOffset += arr.length;
         cmLoading = false;
@@ -838,18 +1093,33 @@ function syncAdminUI(){
       });
   });
 
-  // Отправка нового комментария — всем доступно
-  formEl.addEventListener('submit', function(e){
+  // Отправка нового комментария — только после входа
+  formEl.addEventListener('submit', async function(e){
     e.preventDefault();
+    var ok = await requireKadryAuth('Войдите, чтобы комментировать.');
+    if(!ok) return;
+
+    var state = await getKadryAuthState();
+    var user = state && state.user;
+    if(!user || !user.id){
+      alert('Не удалось определить пользователя. Выйдите и войдите снова.');
+      return;
+    }
+
     var content = (textEl.value||'').trim(); if(!content){ textEl.focus(); return; }
-    var author  = (nameEl.value||'').trim() || null;
+    var author  = displayNameFromAuth(state);
+    if(user.id && state.profile) profileCache[user.id] = state.profile;
     supabase
       .from('comments')
-      .insert([{ series_id: seriesId, author_name: author, content: content }])
+      .insert([{ series_id: seriesId, author_name: author, user_id: user.id, content: content }])
       .select('*')
       .single()
       .then(function(r){
-        if(r.error){ alert('Не удалось сохранить комментарий'); return; }
+        if(r.error){
+          console.error('comment insert error', r.error);
+          alert('Не удалось сохранить комментарий');
+          return;
+        }
         listEl.appendChild(renderComment(r.data));
         // Локально обновим смещение/тотал
         cmOffset += 1; if(cmTotal!==null) cmTotal += 1; else cmTotal = cmOffset;

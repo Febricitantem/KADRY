@@ -121,7 +121,28 @@ function updateSmoothLabel() {
     document.documentElement.style.overflowX = 'hidden';
     document.body.style.overflowX = 'hidden';
 
-    var W = 1920, H = 1080;
+    // ВАЖНО ДЛЯ ОСНОВНОГО РЕДАКТОРА:
+    // кадры игры всегда рисуются и экспортируются строго 1920×1080.
+    // Это защищает художников от ситуации, когда при рисовании они видят одно,
+    // а после публикации картинка растягивается/сжимается.
+    // Пользовательский размер разрешён только для отдельных режимов, например аватарок.
+    var allowCustomCanvas = opts.allowCustomCanvas === true || opts.canvasPreset === 'avatar';
+    var W = 1920;
+    var H = 1080;
+    if (allowCustomCanvas) {
+      W = Number(opts.canvasWidth || opts.width || 1920);
+      H = Number(opts.canvasHeight || opts.height || 1080);
+      if (!isFinite(W) || W <= 0) W = 1920;
+      if (!isFinite(H) || H <= 0) H = 1080;
+      W = Math.round(W);
+      H = Math.round(H);
+    }
+    try {
+      document.documentElement.style.setProperty('--kadry-canvas-w', String(W));
+      document.documentElement.style.setProperty('--kadry-canvas-h', String(H));
+      document.documentElement.style.setProperty('--kadry-canvas-ratio', String(W) + ' / ' + String(H));
+      wrap.setAttribute('aria-label', 'Рабочий холст ' + W + '×' + H);
+    } catch (_) {}
     // ---- палитра справа (HSV-круг, слайдеры и история цветов)
     function applyHSVToUI() {
       var rgb = hsvToRgb(currentHSV.h, currentHSV.s, currentHSV.v);

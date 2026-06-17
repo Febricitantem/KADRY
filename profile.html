@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kadry — Профиль</title>
+  <style>
+    :root{--bg:#f4f4f5;--text:#0f172a;--muted:#64748b;--card:#fff;--stroke:#e5e7eb;--blue:#2563eb;--danger:#b91c1c;}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;}
+    .site-header{position:relative;display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:10px 18px 14px;background:#f8fafc;border-bottom:1px solid var(--stroke);min-height:65px;}
+    .hslot{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-weight:600;min-width:0;}
+    .hslot:hover{background:#e5e7eb40;}
+    .brand{display:flex;flex-direction:column;align-items:center;line-height:1;}
+    .brand .above{font-size:30px;font-weight:800;transform:translateY(-18%);}
+    .brand .below{font-size:14px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transform:translateY(18%);}
+    .wrap{max-width:1120px;margin:22px auto 48px;padding:0 18px;}
+    .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer;font:inherit;font-weight:700;}
+    .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+    .btn:disabled{opacity:.55;cursor:not-allowed;}
+    .profile-card{background:#fff;border:1px solid var(--stroke);border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:grid;grid-template-columns:96px 1fr auto;gap:18px;align-items:center;}
+    .avatar{width:96px;height:96px;border-radius:18px;background:#e2e8f0;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:38px;font-weight:900;color:#475569;position:relative;box-sizing:border-box;}
+    .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+    .avatar.is-editable{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;}
+    .avatar.is-editable:hover,.avatar.is-editable:focus-visible{transform:translateY(-1px);border-color:#94a3b8;box-shadow:0 8px 18px rgba(15,23,42,.18);outline:none;}
+    .avatar-edit-overlay{position:absolute;inset:0;background:rgba(15,23,42,.58);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;opacity:0;pointer-events:none;transition:opacity .14s ease;text-align:center;font-size:12px;font-weight:800;line-height:1.1;}
+    .avatar-edit-overlay .brush{font-size:28px;line-height:1;}
+    .avatar.is-editable:hover .avatar-edit-overlay,.avatar.is-editable:focus-visible .avatar-edit-overlay{opacity:1;}
+    .profile-title{font-size:32px;font-weight:900;margin:0 0 4px;line-height:1.05;}
+    .profile-sub{color:var(--muted);font-size:14px;display:flex;gap:10px;flex-wrap:wrap;}
+    .profile-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
+    .stat{background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;text-align:center;}
+    .stat b{display:block;font-size:24px;}
+    .stat span{color:var(--muted);font-size:13px;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    .section{background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03);}
+    .section h2{margin:0 0 12px;font-size:20px;}
+    .muted{color:var(--muted);font-size:14px;}
+    .list{display:flex;flex-direction:column;gap:10px;}
+    .series-item{border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;background:#f8fafc;}
+    .series-start-card{display:grid;grid-template-columns:124px 1fr;gap:12px;align-items:start;}
+    .series-start-thumb{aspect-ratio:16/9;background:#e2e8f0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;}
+    .series-start-thumb img{width:100%;height:100%;object-fit:contain;display:block;}
+    .series-start-body{min-width:0;}
+    .series-item a{color:#0f172a;text-decoration:none;font-weight:800;}
+    .series-item a:hover{color:var(--blue);}
+    .series-meta{color:var(--muted);font-size:12px;margin-top:4px;}
+    .frames-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+    .frame-card{border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;overflow:hidden;}
+    .frame-card a{color:inherit;text-decoration:none;display:block;}
+    .frame-thumb{aspect-ratio:16/9;background:#e2e8f0;display:flex;align-items:center;justify-content:center;}
+    .frame-thumb img{width:100%;height:100%;object-fit:contain;display:block;}
+    .frame-info{padding:8px;font-size:12px;color:#475569;}
+    .frame-info b{display:block;color:#0f172a;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .edit-box{display:none;margin-top:16px;}
+    .edit-box.is-open{display:block;}
+    .form-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+    .field{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#334155;}
+    .field input{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font:inherit;background:#fff;color:#0f172a;}
+    .form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
+    .error{min-height:18px;color:var(--danger);font-size:13px;margin-top:8px;}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;z-index:1000;padding:18px;box-sizing:border-box;}
+    .modal-backdrop.is-open{display:flex;}
+    .modal{width:min(460px,100%);background:#fff;border:1px solid var(--stroke);border-radius:18px;box-shadow:0 24px 60px rgba(15,23,42,.25);padding:18px;}
+    .modal h2{margin:0 0 8px;font-size:22px;}
+    .modal p{margin:0;color:#334155;line-height:1.45;}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px;}
+    .loading-box{display:flex;align-items:center;justify-content:center;gap:8px;padding:30px;color:#64748b;}
+    @media(max-width:800px){.site-header{grid-template-columns:1fr 1fr;gap:4px}.profile-card{grid-template-columns:76px 1fr}.avatar{width:76px;height:76px;border-radius:14px}.profile-actions{grid-column:1/-1;justify-content:flex-start}.stats{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.profile-title{font-size:26px}.series-start-card{grid-template-columns:1fr}.modal-actions{justify-content:stretch}.modal-actions .btn{flex:1}}
+  </style>
+  <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="admin.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="hslot h1" href="index.html"><div class="brand"><div class="above">Профиль</div><div class="below">Kadry</div></div></a>
+    <a class="hslot h2" href="index.html">Каталог</a>
+    <a class="hslot h3" href="votes.html">Голосования</a>
+    <a class="hslot h4" href="#">Профиль</a>
+  </header>
+
+  <main class="wrap">
+    <div id="page-state" class="loading-box">Загрузка профиля…</div>
+
+    <section id="profile-card" class="profile-card" style="display:none">
+      <div>
+        <div id="avatar" class="avatar">?</div>
+      </div>
+      <div>
+        <h1 id="profile-name" class="profile-title">Профиль</h1>
+        <div id="profile-sub" class="profile-sub"></div>
+      </div>
+      <div class="profile-actions">
+        <button id="edit-profile" class="btn" type="button" style="display:none">Редактировать профиль</button>
+        <button id="open-series-list" class="btn" type="button">Каталог</button>
+      </div>
+    </section>
+
+    <section id="edit-box" class="section edit-box">
+      <h2>Редактирование профиля</h2>
+      <div class="form-grid">
+        <label class="field">
+          Ник
+          <input id="display-name" type="text" maxlength="50" placeholder="Как вас показывать на сайте" />
+        </label>
+        <label class="field">
+          Ссылка
+          <input id="profile-link" type="text" maxlength="32" placeholder="например: igrok" inputmode="latin" autocapitalize="none" spellcheck="false" />
+        </label>
+      </div>
+      <div class="muted" style="margin-top:8px">Ник может быть любым. Ссылка — только латинские буквы и цифры, 3–32 символа, без пробелов и специальных знаков.</div>
+      <div id="save-error" class="error"></div>
+      <div class="form-actions">
+        <button id="cancel-edit" class="btn" type="button">Отмена</button>
+        <button id="save-profile" class="btn primary" type="button">Сохранить</button>
+      </div>
+    </section>
+
+    <section id="stats" class="stats" style="display:none">
+      <div class="stat"><b id="stat-series">0</b><span>начатых серий</span></div>
+      <div class="stat"><b id="stat-frames">0</b><span>кадров автора</span></div>
+      <div class="stat"><b id="stat-comments">0</b><span>комментариев</span></div>
+    </section>
+
+    <div id="content-grid" class="grid" style="display:none">
+      <section class="section">
+        <h2>Начатые серии</h2>
+        <div id="series-list" class="list"><div class="muted">Загрузка…</div></div>
+      </section>
+      <section class="section">
+        <h2>Кадры и дорисовки</h2>
+        <div id="frames-list" class="frames-grid"><div class="muted">Загрузка…</div></div>
+      </section>
+      <section class="section" style="grid-column:1/-1">
+        <h2>Последние комментарии</h2>
+        <div id="comments-list" class="list"><div class="muted">Загрузка…</div></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="avatar-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title">
+      <h2 id="avatar-modal-title">Изменить аватар?</h2>
+      <p>Старый аватар исчезнет навсегда после сохранения нового. Если вы откроете редактор, но не сохраните рисунок, текущий аватар останется без изменений.</p>
+      <div class="modal-actions">
+        <button id="avatar-cancel" class="btn" type="button">Отменить</button>
+        <button id="avatar-download" class="btn" type="button">Скачать аватар</button>
+        <button id="avatar-draw" class="btn primary" type="button">Нарисовать новый</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  const SUPABASE_URL = 'https://upanhirmxhfzpajvswoq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYW5oaXJteGhmenBhanZzd29xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2NjIwNzcsImV4cCI6MjA3MjIzODA3N30.HhrccU3DfoLadflBmTxIDXJgrDQB3m2zLRX3vtRycGA';
+  const sb = window.__supabaseClient || (window.__supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'kadry-auth' }
+  }));
+
+  const params = new URLSearchParams(location.search);
+  let profileId = params.get('id') || '';
+  let profileSlug = normalizeProfileLink(params.get('u') || params.get('username') || '');
+  let currentAuth = null;
+  let currentProfile = null;
+  let ownProfile = false;
+  let profileLoadSeq = 0;
+  const signedCache = new Map();
+
+  function el(id){ return document.getElementById(id); }
+  function clean(v){ return String(v || '').trim(); }
+  function normalizeProfileLink(value){ return String(value || '').trim().toLowerCase(); }
+  function isValidProfileLink(value){ return /^[a-z][a-z0-9]{2,31}$/.test(normalizeProfileLink(value)); }
+  function displayName(profile){ return clean(profile && profile.display_name) || clean(profile && profile.username) || 'Игрок'; }
+  function profileHref(profile){
+    const username = normalizeProfileLink(profile && profile.username);
+    if(isValidProfileLink(username)) return 'profile.html?u=' + encodeURIComponent(username);
+    return profile && profile.id ? 'profile.html?id=' + encodeURIComponent(profile.id) : 'profile.html';
+  }
+  function formatDate(value){ try { return value ? new Date(value).toLocaleDateString() : ''; } catch(_) { return ''; } }
+  function profileSeriesStatusLabel(value){
+    const state = String(value || '').trim();
+    if(state === 'winner_frozen') return 'переигровка';
+    if(state === 'winner') return '';
+    if(state === 'active') return 'активна';
+    if(state === 'replay_frozen') return 'переигровка';
+    return '';
+  }
+
+  async function getDisplayUrl(storedUrl){
+    try{
+      if(!storedUrl) return storedUrl;
+      if(/^data:/.test(storedUrl)) return storedUrl;
+      if(storedUrl.includes('/storage/v1/object/public/Frames/')) return storedUrl;
+      if(signedCache.has(storedUrl)) return signedCache.get(storedUrl);
+      const m = storedUrl.match(/(?:Frames|frames)\/([^?]+)(?:\?|$)/);
+      const key = m && m[1] ? m[1] : null;
+      if(!key) return storedUrl;
+      const { data } = sb.storage.from('Frames').getPublicUrl(key);
+      if(data && data.publicUrl){ signedCache.set(storedUrl, data.publicUrl); return data.publicUrl; }
+    }catch(e){ console.warn('[profile] getDisplayUrl failed', e); }
+    return storedUrl;
+  }
+
+  function setState(text){
+    const state = el('page-state');
+    if(state){ state.style.display = text ? 'flex' : 'none'; state.textContent = text || ''; }
+  }
+
+  function currentAvatarUrl(){ return clean(currentProfile && currentProfile.avatar_url); }
+
+  function setAvatarModalOpen(open){
+    const modal = el('avatar-modal');
+    if(!modal) return;
+    modal.classList.toggle('is-open', !!open);
+    modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    const downloadBtn = el('avatar-download');
+    if(downloadBtn) downloadBtn.disabled = !currentAvatarUrl();
+  }
+
+  function openAvatarEditor(){
+    const ret = profileHref(currentProfile || { id: profileId });
+    location.href = 'avatar-editor.html?return=' + encodeURIComponent(ret);
+  }
+
+  function downloadCurrentAvatar(){
+    const url = currentAvatarUrl();
+    if(!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kadry-avatar.png';
+    a.rel = 'noopener';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function addAvatarOverlay(box){
+    if(!ownProfile) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'avatar-edit-overlay';
+    overlay.innerHTML = '<span class="brush" aria-hidden="true">🖌️</span><span>Изменить</span>';
+    box.appendChild(overlay);
+  }
+
+  function renderAvatar(profile){
+    const box = el('avatar');
+    box.textContent = '';
+    box.classList.toggle('is-editable', !!ownProfile);
+    if(ownProfile){
+      box.setAttribute('role', 'button');
+      box.setAttribute('tabindex', '0');
+      box.setAttribute('aria-label', 'Изменить аватар');
+    }else{
+      box.removeAttribute('role');
+      box.removeAttribute('tabindex');
+      box.removeAttribute('aria-label');
+    }
+
+    const url = clean(profile && profile.avatar_url);
+    if(url){
+      const img = document.createElement('img');
+      img.alt = displayName(profile);
+      img.src = url;
+      img.onerror = function(){
+        box.textContent = (displayName(profile).charAt(0) || '?').toUpperCase();
+        addAvatarOverlay(box);
+      };
+      box.appendChild(img);
+    }else{
+      box.textContent = (displayName(profile).charAt(0) || '?').toUpperCase();
+    }
+    addAvatarOverlay(box);
+  }
+
+  function renderHeader(profile){
+    el('profile-card').style.display = 'grid';
+    el('profile-name').textContent = displayName(profile);
+    renderAvatar(profile);
+
+    const sub = el('profile-sub');
+    sub.textContent = '';
+    const created = formatDate(profile.created_at);
+    const username = normalizeProfileLink(profile.username);
+    const parts = [];
+    if(username && isValidProfileLink(username)) parts.push('ссылка: /profile.html?u=' + username);
+    if(created) parts.push('на сайте с ' + created);
+    if(ownProfile) parts.push('это ваш профиль');
+    parts.forEach(function(part, idx){
+      if(idx) sub.appendChild(document.createTextNode(' · '));
+      const span = document.createElement('span'); span.textContent = part; sub.appendChild(span);
+    });
+
+    if(username && isValidProfileLink(username) && location.search.indexOf('u=') === -1 && ownProfile){
+      try { history.replaceState({}, document.title, profileHref(profile)); } catch(_) {}
+    }
+
+    el('edit-profile').style.display = ownProfile ? '' : 'none';
+  }
+
+  function fillEditForm(profile){
+    el('display-name').value = clean(profile.display_name);
+    el('profile-link').value = normalizeProfileLink(profile.username);
+    el('save-error').textContent = '';
+  }
+
+  function uniqueById(rows){
+    const seen = new Set();
+    const out = [];
+    (rows || []).forEach(function(row){
+      const id = row && row.id;
+      if(id === null || id === undefined) return;
+      const key = String(id);
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(row);
+    });
+    return out;
+  }
+
+  function isFreshLoad(seq){ return seq === profileLoadSeq; }
+
+  async function loadSeriesStarted(seq){
+    const box = el('series-list');
+    const { data, error, count } = await sb
+      .from('series')
+      .select('id,title,description,created_at,vote_state', { count: 'exact' })
+      .eq('created_by', profileId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if(!isFreshLoad(seq)) return;
+    el('stat-series').textContent = count || 0;
+    if(error){ box.innerHTML = '<div class="muted">Не удалось загрузить серии</div>'; return; }
+    const rows = uniqueById(data);
+    if(!rows.length){ box.innerHTML = '<div class="muted">Пока нет начатых серий.</div>'; return; }
+
+    const ids = rows.map(s => s.id).filter(Boolean);
+    const firstFrames = {};
+    if(ids.length){
+      const r = await sb
+        .from('frames')
+        .select('id,series_id,image_url,order_index,committed,history,created_at')
+        .in('series_id', ids)
+        .eq('order_index', 1)
+        .eq('committed', true)
+        .eq('history', false)
+        .order('created_at', { ascending: true });
+      if(!isFreshLoad(seq)) return;
+      uniqueById(r.data).forEach(function(f){
+        if(!firstFrames[f.series_id]) firstFrames[f.series_id] = f;
+      });
+    }
+
+    const frag = document.createDocumentFragment();
+    rows.forEach(function(s){
+      const item = document.createElement('div'); item.className = 'series-item series-start-card';
+      const frame = firstFrames[s.id];
+      const thumb = document.createElement('a');
+      thumb.className = 'series-start-thumb';
+      thumb.href = 'series.html?id=' + encodeURIComponent(s.id);
+      if(frame && frame.image_url){
+        const img = document.createElement('img');
+        img.alt = 'Начальный кадр серии ' + (s.title || '');
+        thumb.appendChild(img);
+        getDisplayUrl(frame.image_url).then(function(u){ if(isFreshLoad(seq)) img.src = u; });
+      }else{
+        thumb.textContent = 'начальный кадр';
+      }
+
+      const body = document.createElement('div'); body.className = 'series-start-body';
+      const a = document.createElement('a'); a.href = 'series.html?id=' + encodeURIComponent(s.id); a.textContent = s.title || 'Без названия';
+      const meta = document.createElement('div'); meta.className = 'series-meta';
+      const statusLabel = profileSeriesStatusLabel(s.vote_state);
+      meta.textContent = [formatDate(s.created_at), statusLabel].filter(Boolean).join(' · ');
+      const desc = document.createElement('div'); desc.className = 'muted'; desc.textContent = clean(s.description).slice(0, 180) || 'Без описания';
+      body.appendChild(a); body.appendChild(meta); body.appendChild(desc);
+      item.appendChild(thumb); item.appendChild(body); frag.appendChild(item);
+    });
+    box.replaceChildren(frag);
+  }
+
+
+  async function loadFramesByAuthor(seq){
+    const box = el('frames-list');
+    const { data, error, count } = await sb
+      .from('frames')
+      .select('id,series_id,image_url,order_index,committed,in_vote,history,created_at', { count: 'exact' })
+      .eq('created_by', profileId)
+      .eq('committed', true)
+      .eq('history', false)
+      .order('created_at', { ascending: false })
+      .limit(60);
+    if(!isFreshLoad(seq)) return;
+    el('stat-frames').textContent = count || 0;
+    if(error){ box.innerHTML = '<div class="muted">Не удалось загрузить кадры</div>'; return; }
+    const rows = uniqueById(data);
+    if(!rows.length){ box.innerHTML = '<div class="muted">Пока нет подтверждённых кадров.</div>'; return; }
+
+    const ids = Array.from(new Set(rows.map(f => f.series_id).filter(Boolean)));
+    const seriesMap = {};
+    if(ids.length){
+      const r = await sb.from('series').select('id,title').in('id', ids);
+      if(!isFreshLoad(seq)) return;
+      uniqueById(r.data).forEach(function(s){ seriesMap[s.id] = s.title; });
+    }
+
+    const frag = document.createDocumentFragment();
+    for(const f of rows){
+      const card = document.createElement('div'); card.className = 'frame-card';
+      const a = document.createElement('a'); a.href = 'series.html?id=' + encodeURIComponent(f.series_id || '');
+      const thumb = document.createElement('div'); thumb.className = 'frame-thumb';
+      const img = document.createElement('img'); img.alt = 'Кадр ' + (f.order_index || '');
+      thumb.appendChild(img);
+      if(f.image_url) getDisplayUrl(f.image_url).then(function(u){ if(isFreshLoad(seq)) img.src = u; });
+      const info = document.createElement('div'); info.className = 'frame-info';
+      const title = document.createElement('b'); title.textContent = seriesMap[f.series_id] || 'Серия';
+      info.appendChild(title);
+      info.appendChild(document.createTextNode('кадр #' + (f.order_index || '?')));
+      a.appendChild(thumb); a.appendChild(info); card.appendChild(a); frag.appendChild(card);
+    }
+    box.replaceChildren(frag);
+  }
+
+
+  async function loadCommentsByAuthor(seq){
+    const box = el('comments-list');
+    const { data, error, count } = await sb
+      .from('comments')
+      .select('id,series_id,content,created_at', { count: 'exact' })
+      .eq('user_id', profileId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if(!isFreshLoad(seq)) return;
+    el('stat-comments').textContent = count || 0;
+    if(error){ box.innerHTML = '<div class="muted">Не удалось загрузить комментарии</div>'; return; }
+    const rows = uniqueById(data);
+    if(!rows.length){ box.innerHTML = '<div class="muted">Пока нет комментариев от этого профиля.</div>'; return; }
+
+    const ids = Array.from(new Set(rows.map(c => c.series_id).filter(Boolean)));
+    const seriesMap = {};
+    if(ids.length){
+      const r = await sb.from('series').select('id,title').in('id', ids);
+      if(!isFreshLoad(seq)) return;
+      uniqueById(r.data).forEach(function(s){ seriesMap[s.id] = s.title; });
+    }
+
+    const frag = document.createDocumentFragment();
+    rows.forEach(function(c){
+      const item = document.createElement('div'); item.className = 'series-item';
+      const a = document.createElement('a'); a.href = 'series.html?id=' + encodeURIComponent(c.series_id || ''); a.textContent = seriesMap[c.series_id] || 'Серия';
+      const meta = document.createElement('div'); meta.className = 'series-meta'; meta.textContent = formatDate(c.created_at);
+      const text = document.createElement('div'); text.className = 'muted'; text.textContent = clean(c.content).slice(0, 220);
+      item.appendChild(a); item.appendChild(meta); item.appendChild(text); frag.appendChild(item);
+    });
+    box.replaceChildren(frag);
+  }
+
+
+  async function loadProfile(){
+    const seq = ++profileLoadSeq;
+    setState('Загрузка профиля…');
+    el('series-list').innerHTML = '<div class="muted">Загрузка…</div>';
+    el('frames-list').innerHTML = '<div class="muted">Загрузка…</div>';
+    el('comments-list').innerHTML = '<div class="muted">Загрузка…</div>';
+    try{
+      currentAuth = typeof window.kadryGetAuthState === 'function' ? await window.kadryGetAuthState() : null;
+      if(!isFreshLoad(seq)) return;
+      if(!profileId && !profileSlug && currentAuth && currentAuth.user){ profileId = currentAuth.user.id; }
+      if(!profileId && !profileSlug){ setState('Войдите в аккаунт или откройте профиль автора по ссылке.'); return; }
+
+      let query = sb
+        .from('public_profiles')
+        .select('id,username,display_name,avatar_url,created_at');
+      query = profileSlug ? query.eq('username', profileSlug) : query.eq('id', profileId);
+      const { data, error } = await query.maybeSingle();
+      if(!isFreshLoad(seq)) return;
+      if(error){ console.error(error); setState('Не удалось загрузить профиль.'); return; }
+      if(!data){ setState('Профиль не найден.'); return; }
+
+      currentProfile = data;
+      profileId = data.id;
+      profileSlug = normalizeProfileLink(data.username);
+      ownProfile = !!(currentAuth && currentAuth.user && currentAuth.user.id === profileId);
+      setState('');
+      renderHeader(currentProfile);
+      fillEditForm(currentProfile);
+      el('stats').style.display = 'grid';
+      el('content-grid').style.display = 'grid';
+      await Promise.all([loadSeriesStarted(seq), loadFramesByAuthor(seq), loadCommentsByAuthor(seq)]);
+    }catch(e){
+      if(!isFreshLoad(seq)) return;
+      console.error(e);
+      setState('Ошибка загрузки профиля.');
+    }
+  }
+
+  el('open-series-list').onclick = function(){ location.href = 'index.html'; };
+  el('avatar').addEventListener('click', function(){ if(ownProfile) setAvatarModalOpen(true); });
+  el('avatar').addEventListener('keydown', function(e){
+    if(!ownProfile) return;
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setAvatarModalOpen(true); }
+  });
+  el('avatar-cancel').onclick = function(){ setAvatarModalOpen(false); };
+  el('avatar-download').onclick = downloadCurrentAvatar;
+  el('avatar-draw').onclick = openAvatarEditor;
+  el('avatar-modal').addEventListener('click', function(e){ if(e.target === el('avatar-modal')) setAvatarModalOpen(false); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') setAvatarModalOpen(false); });
+  el('edit-profile').onclick = function(){ el('edit-box').classList.add('is-open'); fillEditForm(currentProfile || {}); };
+  el('cancel-edit').onclick = function(){ el('edit-box').classList.remove('is-open'); fillEditForm(currentProfile || {}); };
+  el('save-profile').onclick = async function(){
+    if(!ownProfile) return;
+    const btn = el('save-profile');
+    const err = el('save-error');
+    err.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Сохраняем…';
+    const r = typeof window.kadrySaveProfile === 'function'
+      ? await window.kadrySaveProfile({ nick: el('display-name').value, username: el('profile-link').value })
+      : { ok:false, error:new Error('Auth-слой не готов') };
+    btn.disabled = false;
+    btn.textContent = 'Сохранить';
+    if(!r.ok){ err.textContent = (r.error && r.error.message) ? r.error.message : 'Не удалось сохранить профиль.'; return; }
+    currentProfile = r.profile || currentProfile;
+    profileSlug = normalizeProfileLink(currentProfile.username);
+    if(profileSlug && isValidProfileLink(profileSlug)){ try { history.replaceState({}, document.title, profileHref(currentProfile)); } catch(_) {} }
+    renderHeader(currentProfile);
+    fillEditForm(currentProfile);
+    el('edit-box').classList.remove('is-open');
+  };
+
+  window.addEventListener('kadry:auth-changed', function(){ loadProfile(); });
+  loadProfile();
+})();
+</script>
+</body>
+</html>
