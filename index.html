@@ -82,50 +82,55 @@
     }
 
 
-/* строка "Каталог серий" + кнопка */
-.catalog-header {
-  display: grid;
-  grid-template-columns: 320px 1fr 240px; /* как series-row */
-  align-items: center;
-  column-gap: 24px;
-  margin: 8px 0 18px;
-  padding: 0 16px; /* добавляем такие же внутренние поля как у карточек */
-}
+/* В каталоге остаётся только действие создания: название страницы уже есть в шапке. */
+    .catalog-header {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      margin:8px 0 18px;
+      padding:0 16px;
+    }
 
-.catalog-header h1 {
-  grid-column: 1 / span 2;
-  margin: 0;
-  font-size: 36px;
-  font-weight: 800;
-}
-
-/* Кнопка */
-#open-create {
-  grid-column: 3;
-  justify-self: center;
-
-  /* Размер как у маленьких кнопок, но чуть выше */
-  padding: 10px 20px;
-  font-size: 15px;
-  border-radius: 12px;
-
-  /* Чтобы выглядела так же аккуратно, как в карточках */
-  min-width: 160px;
-  text-align: center;
-}
-
-
+    #open-create {
+      min-width:220px;
+      padding:10px 18px;
+      font-size:15px;
+      border-radius:12px;
+    }
 
     .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer}
     .btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
     .btn:disabled{opacity:.5;cursor:not-allowed}
 
-    /* Лента серии — фиксированная: 1 строка, 3 колонки */
-    .series-row{position:relative;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:320px 1fr 240px;gap:24px;align-items:center;height:152px;overflow:hidden}
-    @media (max-width:900px){.series-row{grid-template-columns:1fr;height:auto;align-items:start}.aside{align-items:flex-start;text-align:left;width:auto}.series-actions .btn,.series-title{width:100%}}
+    /* Лента серии: превью — содержание — автор и действия. */
+    .series-row{
+      position:relative;
+      display:grid;
+      grid-template-columns:320px minmax(0, 1fr) 220px;
+      gap:24px;
+      align-items:center;
+      min-height:152px;
+      overflow:hidden;
+      margin-bottom:16px;
+      padding:14px 16px;
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
 
     /* col1: превью/стопка */
-    .preview{grid-column:1;height:124px;width:100%;overflow:hidden;padding-left:12px;position:relative;display:flex;align-items:center;cursor:pointer}
+    .preview{
+      grid-column:1;
+      position:relative;
+      display:flex;
+      align-items:center;
+      width:100%;
+      height:124px;
+      padding-left:12px;
+      overflow:hidden;
+      cursor:pointer;
+    }
     .stack{position:relative;height:124px;width:100%;overflow:hidden}
     .tile{position:absolute;top:0;left:0;width:220px;aspect-ratio:16/9;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:transform 1s ease,left 1s ease,opacity 1s ease;will-change:left,transform}
     .tile img{width:100%;height:100%;object-fit:contain;display:block}
@@ -137,21 +142,126 @@
     .tile.ellipsis img{filter:opacity(.3)}
     .tile.ellipsis::after{content:'…';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#334155}
 
-    /* col2: описание */
-    .series-desc{grid-column:2;grid-row:1;color:#475569;font-size:14px;text-align:center;display:flex;align-items:center;justify-content:center;height:124px;overflow:hidden;position:relative}
-    .series-desc__inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease, transform 1.4s ease}
-    .series-row.expanded .series-desc__inner{opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s ease, transform .6s ease}
+    /* col2: название и описание — единый стабильный текстовый блок. */
+    .series-content{
+      grid-column:2;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      height:124px;
+      overflow:hidden;
+      text-align:center;
+    }
+    .series-content__inner{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      transition:opacity 1.8s ease, transform 1.4s ease;
+    }
+    .series-row.expanded .series-content__inner{
+      opacity:0;
+      transform:translateY(12px);
+      pointer-events:none;
+      transition:opacity .2s ease, transform .6s ease;
+    }
+    .series-title{
+      display:-webkit-box;
+      max-width:min(100%, 520px);
+      margin:0;
+      overflow:hidden;
+      color:#0f172a;
+      font-size:20px;
+      font-weight:800;
+      line-height:1.2;
+      letter-spacing:-.01em;
+      -webkit-box-orient:vertical;
+      -webkit-line-clamp:2;
+    }
+    .series-description{
+      display:-webkit-box;
+      max-width:min(100%, 500px);
+      margin:8px 0 0;
+      overflow:hidden;
+      color:#64748b;
+      font-size:14px;
+      line-height:1.4;
+      -webkit-box-orient:vertical;
+      -webkit-line-clamp:2;
+    }
+    .series-content.is-title-only .series-description{display:none}
 
-    /* col3: правый столбец — единая ось: заголовок + две равные кнопки */
-    .aside{grid-column:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;width:240px;height:124px}
-    .series-title{font-size:20px;font-weight:800;margin:0 0 8px;text-align:center}
-    .series-actions{display:flex;flex-direction:column;gap:10px;margin-top:6px;align-items:center}
-    .series-author-chip{display:inline-flex;align-items:center;justify-content:center;gap:7px;margin-top:10px;max-width:190px;color:#64748b;font-size:12px;text-decoration:none;}
+    /* col3: автор → кликабельный статус голосования → открытие серии. */
+    .aside{
+      grid-column:3;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      width:220px;
+      height:124px;
+      min-width:0;
+      text-align:center;
+    }
+    .series-author-chip{display:inline-flex;align-items:center;justify-content:center;gap:7px;max-width:100%;margin:0;color:#64748b;font-size:12px;text-decoration:none;}
     .series-author-chip:hover .series-author-name{color:#2563eb;text-decoration:underline;}
     .series-author-avatar{width:30px;height:30px;min-width:30px;border-radius:9px;border:1px solid #cbd5e1;background:#e2e8f0;color:#334155;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;text-decoration:none;font-size:13px;font-weight:900;line-height:1;box-sizing:border-box;}
     .series-author-avatar img{width:100%;height:100%;display:block;object-fit:cover;}
-    .series-author-name{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;font-weight:700;}
+    .series-author-name{max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;font-weight:700;}
 
+    .series-status-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      box-sizing:border-box;
+      width:100%;
+      min-height:34px;
+      padding:7px 10px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#f8fafc;
+      color:#475569;
+      font-size:13px;
+      font-weight:750;
+      line-height:1.1;
+      text-decoration:none;
+      transition:background .16s ease,border-color .16s ease,transform .16s ease;
+    }
+    .series-status-link::before{font-size:13px;line-height:1}
+    .series-status-link:hover{transform:translateY(-1px);filter:brightness(.98)}
+    .series-status-link:focus-visible,.series-actions .btn:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
+    .series-status-link.is-active{background:#effdf4;border-color:#86efac;color:#166534}
+    .series-status-link.is-active::before{content:'●'}
+    .series-status-link.is-winner{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+    .series-status-link.is-winner::before{content:'★'}
+    .series-status-link.is-replay{background:#fff7ed;border-color:#fdba74;color:#b45309}
+    .series-status-link.is-replay::before{content:'↻'}
+    /* Серия открыта для игры, но отдельный раунд голосования ещё не запущен. */
+    .series-status-link.is-ready{background:#f5f3ff;border-color:#c4b5fd;color:#6d28d9}
+    .series-status-link.is-ready::before{content:'✦'}
+    .series-status-link.is-neutral::before{content:'•'}
+
+    .series-actions{display:flex;width:100%;margin:0}
+    .series-actions .btn{width:100%;box-sizing:border-box}
+
+    @media (max-width:1050px) and (min-width:769px){
+      .site-header{padding-left:14px;padding-right:14px}
+      .brand .above{font-size:26px}
+      .wrap{max-width:none;margin-left:0;margin-right:0}
+      .series-row{grid-template-columns:240px minmax(0,1fr) 190px;gap:16px}
+      .aside{width:190px}
+      .preview{padding-left:4px}
+      .tile{width:205px}
+      .series-title{font-size:19px}
+      .series-author-name{max-width:130px}
+    }
     /* Оверлей закрытого онлайна */
     body.site-closed {
       overflow: hidden;
@@ -206,6 +316,7 @@
     .pagination span {
       min-width: 140px;
     }
+  
   
     /* Нижняя шапка: контакты, благодарность и поддержка. */
     .kadry-footer{
@@ -530,8 +641,7 @@
       border-bottom-color:currentColor;
       outline:none;
     }
-
-  </style>
+</style>
  <!-- ⬇ наш мобильный файл, работает только на узких экранах -->
   <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -562,7 +672,6 @@
 
  <div class="wrap">
   <div class="catalog-header">
-    <h1>Каталог серий</h1>
     <button id="open-create" class="btn primary">Создать серию</button>
   </div>
 
@@ -648,15 +757,6 @@
   checkSiteOpen();
 
   // --- Helpers ---
-  const descriptionPlaceholders = [
-    'Hello, world!',
-    'It works!',
-    'Не судите строго.',
-    'Привет, это моя серия!',
-    'Вы кадр №…',
-    'Если вы это читаете — значит всё работает.'
-  ];
-
   const signedCache = new Map();
     let loadingTimer = null;
 
@@ -767,6 +867,63 @@ const USE_SIGNED_URLS = false; // true если Frames НЕ public
     node.appendChild(avatar);
     node.appendChild(text);
     return node;
+  }
+
+
+  function getSeriesVoteStatus(series){
+    const state = String((series && series.vote_state) || 'active');
+    const hasCurrentRound = !!(
+      series && (
+        String(series.vote_round_id || '').trim() ||
+        String(series.vote_round_start_at || '').trim() ||
+        String(series.vote_round_end_at || '').trim()
+      )
+    );
+
+    if(state === 'winner_frozen'){
+      return {
+        label: 'Победитель',
+        className: 'is-winner',
+        title: 'Открыть историю победителя'
+      };
+    }
+    if(state === 'replay_frozen'){
+      return {
+        label: 'Переигровка',
+        className: 'is-replay',
+        title: 'Открыть переигровку'
+      };
+    }
+    if(state === 'active' && hasCurrentRound){
+      return {
+        label: 'Голосование',
+        className: 'is-active',
+        title: 'Открыть текущее голосование'
+      };
+    }
+    if(state === 'active'){
+      return {
+        label: 'Начнем игру',
+        className: 'is-ready',
+        title: 'Открыть серию, чтобы начать игру'
+      };
+    }
+    return {
+      label: 'Начнем игру',
+      className: 'is-ready',
+      title: 'Открыть серию, чтобы начать игру'
+    };
+  }
+
+  function makeSeriesVoteStatusLink(series){
+    const status = getSeriesVoteStatus(series);
+    const link = document.createElement('a');
+    link.className = 'series-status-link ' + status.className;
+    link.href = `vote.html?series=${encodeURIComponent(series.id)}`;
+    link.textContent = status.label;
+    link.title = status.title;
+    link.setAttribute('aria-label', status.title);
+    return link;
   }
 
 async function getDisplayUrl(storedUrl){
@@ -930,24 +1087,41 @@ async function getDisplayUrl(storedUrl){
       requestAnimationFrame(()=> tiles.forEach(t=>{ t.style.transition='transform 1s ease, left 1s ease, opacity 1s ease'; }));
     })();
 
-    // col2: description
-    const desc=document.createElement('div');
-    desc.className='series-desc';
-    const descText = (s.description && s.description.trim())
-      ? (s.description||'')
-      : descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
-    const safe = descText.replace(/[<>]/g, m=>({"<":"&lt;",">":"&gt;"}[m]));
-    const descHtml = `<div class="series-desc__inner">${safe}</div>`;
-    desc.innerHTML = descHtml;
+    // col2: название и описание. Пустое описание не получает случайную заглушку.
+    const content=document.createElement('div');
+    content.className='series-content';
+    const contentInner=document.createElement('div');
+    contentInner.className='series-content__inner';
+    const title=document.createElement('h2');
+    title.className='series-title';
+    title.textContent=(s.title || `Серия #${s.id}`).trim();
+    contentInner.appendChild(title);
 
-    // col3: aside
-    const aside=document.createElement('div'); aside.className='aside';
-    const h=document.createElement('div'); h.className='series-title'; h.textContent=s.title; aside.appendChild(h);
-    const actions=document.createElement('div'); actions.className='series-actions';
-    const btnVote=document.createElement('button'); btnVote.className='btn vote'; btnVote.textContent='Голосование'; btnVote.onclick=()=>{ location.href=`vote.html?series=${s.id}`; };
-    const btnOpen=document.createElement('button'); btnOpen.className='btn primary open'; btnOpen.textContent='Открыть серию'; btnOpen.onclick=()=>{ location.href=`series.html?id=${s.id}`; };
-    actions.appendChild(btnVote); actions.appendChild(btnOpen); aside.appendChild(actions);
+    const description = String(s.description || '').trim();
+    if(description){
+      const descriptionEl=document.createElement('p');
+      descriptionEl.className='series-description';
+      descriptionEl.textContent=description;
+      contentInner.appendChild(descriptionEl);
+    }else{
+      content.classList.add('is-title-only');
+    }
+    content.appendChild(contentInner);
+
+    // col3: автор, кликабельный статус голосования и явное открытие серии.
+    const aside=document.createElement('div');
+    aside.className='aside';
     aside.appendChild(makeSeriesAuthorChip(s.created_by, s.created_by ? 'Автор' : 'Автор не указан'));
+    aside.appendChild(makeSeriesVoteStatusLink(s));
+    const actions=document.createElement('div');
+    actions.className='series-actions';
+    const btnOpen=document.createElement('button');
+    btnOpen.className='btn primary open';
+    btnOpen.type='button';
+    btnOpen.textContent='Открыть серию';
+    btnOpen.onclick=()=>{ location.href=`series.html?id=${s.id}`; };
+    actions.appendChild(btnOpen);
+    aside.appendChild(actions);
 
     // --- Hover behaviour ---
     let hoverTimer=null; let expanded=false;
@@ -977,7 +1151,7 @@ async function getDisplayUrl(storedUrl){
       stack.style.height = stack.offsetHeight + 'px';
 
 if (canHideDesc) {
-  row.classList.add('expanded'); // только тогда будем прятать описание
+  row.classList.add('expanded'); // название и описание уходят под разложенные кадры
 }
 stack.classList.add('expanded');   // анимация стопки — всегда
 
@@ -1064,17 +1238,8 @@ stack.classList.remove('expanded');
       if(inActive) { e.preventDefault(); goSeries(); }
     });
 
-    requestAnimationFrame(()=>{
-      const openW = btnOpen.offsetWidth;
-      const voteW = btnVote.offsetWidth;
-      const target = Math.max(openW, voteW);
-      btnOpen.style.width = target+'px';
-      btnVote.style.width = target+'px';
-      h.style.width = target+'px';
-    });
-
     row.appendChild(preview);
-    row.appendChild(desc);
+    row.appendChild(content);
     row.appendChild(aside);
     host.appendChild(row);
   }
@@ -1133,7 +1298,6 @@ stack.classList.remove('expanded');
   setupPagination();
   loadSeries(1);
 </script>
-
 
 <footer class="kadry-footer" aria-label="Контакты, благодарность и поддержка">
   <div class="kadry-footer__surface">
@@ -1254,6 +1418,7 @@ stack.classList.remove('expanded');
   });
 })();
 </script>
+
 
 </body>
 </html>

@@ -1,9 +1,26 @@
 @media (max-width: 768px) {
+  body { font-size: 14px; }
 
-  /* чуть компактнее базовый текст */
-  body {
-    font-size: 14px;
+  .site-header {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    grid-template-areas:
+      "brand profile"
+      "catalog votes";
+    row-gap: 6px;
+    min-height: 0;
+    padding: 8px 10px 10px;
   }
+  .site-header .h1 { grid-area: brand; justify-content: flex-start; }
+  .site-header .h2 { grid-area: catalog; justify-content: flex-start; }
+  .site-header .h3 { grid-area: votes; justify-content: flex-start; }
+  .site-header .h4 { grid-area: profile; justify-content: flex-end; min-width: 0; }
+  .site-header .brand { align-items: flex-start; }
+  .site-header .brand .above { font-size: 22px; transform: none; }
+  .site-header .brand .below { font-size: 11px; transform: none; margin-top: 3px; }
+  .site-header .hslot { min-height: 28px; font-size: 13px; }
+  .site-header .kadry-auth-slot { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .site-header .kadry-auth-name { max-width: 72px; }
+  .site-header .kadry-auth-admin { display: none; }
 
   .wrap {
     max-width: 100%;
@@ -11,120 +28,135 @@
     padding: 8px 10px 16px;
   }
 
-  /* ---- верх блока каталога ---- */
-
-  /* убираем "Каталог серий" как отдельный заголовок */
-  .catalog-header h1 {
-    display: none !important;
-  }
-
   .catalog-header {
-    display: block;
-    margin: 0 0 12px;
-    padding: 0;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    margin:0 0 12px;
+    padding:0 2px;
+  }
+  #open-create {
+    width:auto;
+    min-width:0;
+    margin:0;
+    padding:9px 12px;
+    font-size:13px;
+    border-radius:10px;
   }
 
-  /* кнопка "Создать серию" одна, над списком, на всю ширину */
-  #open-create {
-    display: block;
-    width: 100%;
-    max-width: none;
-    margin: 0 0 16px;
-    padding: 10px 18px;
+  .series-row {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    grid-template-areas:
+      "preview content"
+      "preview aside";
+    align-items: start;
+    gap: 8px 12px;
+    min-height: 0;
+    margin-bottom: 10px;
+    padding: 10px 12px;
     border-radius: 12px;
   }
 
-  /* ---- карточка серии ---- */
-
-  /* вместо grid делаем компактный ряд: картинка слева, текст справа */
-  .series-row {
-    display: flex;
-    align-items: stretch;
-    gap: 12px;
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    height: auto;
-    grid-template-columns: none; /* на всякий случай */
-  }
-
-  /* превью слева – фиксированная ширина */
   .preview {
-    grid-column: auto;
+    grid-area: preview;
+    align-self: start;
+    width: 90px;
+    height: 88px;
+    min-height: 0;
     padding-left: 0;
-    height: auto;
-    flex: 0 0 90px;
-    max-width: 90px;
-    align-items: stretch;
+    overflow: hidden;
   }
-
-  .stack {
-    position: relative;
-    width: 100%;
-    height: auto;
-  }
-
-  /* оставляем только первый кадр, остальные скрываем */
+  .stack { width: 100%; height: 88px; }
   .stack .tile {
     position: relative;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    height: 100%;
+    aspect-ratio: auto;
     top: 0;
     left: 0;
     transform: none !important;
     box-shadow: none;
   }
+  .stack .tile:not(:first-child) { display: none; }
+  .stack .tile img { width: 100%; height: 100%; object-fit: cover; }
 
-  .stack .tile:not(:first-child) {
-    display: none;
-  }
-
-  .stack .tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  /* описание серии скрываем на телефоне */
-  .series-desc {
-    display: none;
-  }
-
-  /* правый столбец — становится правой частью карточки */
-  .aside {
-    grid-column: auto;
+  .series-content {
+    grid-area: content;
+    display: block;
     width: auto;
     height: auto;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
+    min-height: 0;
+    overflow: visible;
     text-align: left;
   }
-
+  .series-content__inner {
+    position: static;
+    display: block;
+    min-width: 0;
+    transform: none !important;
+    opacity: 1 !important;
+  }
   .series-title {
+    max-width: none;
     font-size: 16px;
-    margin: 0 0 6px;
+    line-height: 1.22;
     text-align: left;
-    width: 100%;
+    -webkit-line-clamp: 2;
+  }
+  .series-description {
+    max-width: none;
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.32;
+    text-align: left;
+    -webkit-line-clamp: 2;
   }
 
-  .series-actions {
-    width: 100%;
-    margin-top: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: stretch;
+  .aside {
+    grid-area: aside;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: stretch;
+    gap: 6px 8px;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    text-align: left;
   }
+  .series-author-chip {
+    grid-column: 1;
+    justify-content: flex-start;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 11px;
+  }
+  .series-author-avatar { width: 24px; height: 24px; min-width: 24px; border-radius:8px; font-size:11px; }
+  .series-author-name { max-width: 112px; }
+  .series-status-link {
+    grid-column: 2;
+    width: auto;
+    min-height: 28px;
+    padding: 5px 7px;
+    border-radius: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .series-status-link::before { font-size: 11px; }
+  .series-actions { grid-column: 1 / -1; width: 100%; }
+  .series-actions .btn { width: 100%; min-height: 32px; padding: 6px 10px; font-size: 12px; }
 
-  .series-actions .btn {
-    width: 100%;
-  }
+  .pagination { margin-top: 18px; margin-bottom: 24px; gap: 10px; }
+  .pagination span { min-width: auto; font-size: 13px; }
+}
 
-  /* пагинация — чуть компактнее */
-  .pagination {
-    margin-top: 18px;
-    margin-bottom: 24px;
-  }
+@media (max-width: 390px) {
+  .site-header .kadry-auth-name { max-width: 56px; }
+  .series-row { grid-template-columns: 82px minmax(0, 1fr); gap: 8px 10px; padding: 9px 10px; }
+  .preview, .stack { width: 82px; height: 82px; }
+  .aside { grid-template-columns: 1fr; }
+  .series-author-chip, .series-status-link, .series-actions { grid-column: 1; }
+  .series-status-link { justify-self: start; }
+  .series-author-name { max-width: 150px; }
 }

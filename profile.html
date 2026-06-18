@@ -16,6 +16,8 @@
     .wrap{max-width:1120px;margin:22px auto 48px;padding:0 18px;}
     .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer;font:inherit;font-weight:700;}
     .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+    .btn.profile-sign-out{border-color:#fecdd3;background:#fff1f2;color:#9f1239;}
+    .btn.profile-sign-out:hover{border-color:#fda4af;background:#ffe4e6;}
     .btn:disabled{opacity:.55;cursor:not-allowed;}
     .profile-card{background:#fff;border:1px solid var(--stroke);border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:grid;grid-template-columns:96px 1fr auto;gap:18px;align-items:center;}
     .avatar{width:96px;height:96px;border-radius:18px;background:#e2e8f0;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:38px;font-weight:900;color:#475569;position:relative;box-sizing:border-box;}
@@ -26,7 +28,12 @@
     .avatar-edit-overlay .brush{font-size:28px;line-height:1;}
     .avatar.is-editable:hover .avatar-edit-overlay,.avatar.is-editable:focus-visible .avatar-edit-overlay{opacity:1;}
     .profile-title{font-size:32px;font-weight:900;margin:0 0 4px;line-height:1.05;}
-    .profile-sub{color:var(--muted);font-size:14px;display:flex;gap:10px;flex-wrap:wrap;}
+    .profile-sub{min-width:0;color:var(--muted);font-size:14px;}
+    .profile-description{color:#334155;font-size:15px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;min-height:0;}
+    .profile-description:empty{display:none;}
+    .profile-description a{color:var(--blue);text-decoration:underline;text-underline-offset:2px;}
+    .profile-description a:hover{color:#1d4ed8;}
+    .profile-meta{color:var(--muted);font-size:14px;margin-top:7px;}
     .profile-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
     .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0;}
     .stat{background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;text-align:center;}
@@ -56,8 +63,11 @@
     .edit-box.is-open{display:block;}
     .form-grid{display:grid;grid-template-columns:1fr;gap:10px;}
     .field{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#334155;}
-    .field input{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font:inherit;background:#fff;color:#0f172a;}
-    .form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
+    .field input,.field textarea{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font:inherit;background:#fff;color:#0f172a;}
+    .field textarea{min-height:126px;resize:vertical;line-height:1.45;}
+    .field-hint{color:var(--muted);font-size:12px;line-height:1.4;}
+    .form-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;}
+    .form-actions-left,.form-actions-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
     .error{min-height:18px;color:var(--danger);font-size:13px;margin-top:8px;}
     .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;z-index:1000;padding:18px;box-sizing:border-box;}
     .modal-backdrop.is-open{display:flex;}
@@ -66,7 +76,8 @@
     .modal p{margin:0;color:#334155;line-height:1.45;}
     .modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px;}
     .loading-box{display:flex;align-items:center;justify-content:center;gap:8px;padding:30px;color:#64748b;}
-    @media(max-width:800px){.site-header{grid-template-columns:1fr 1fr;gap:4px}.profile-card{grid-template-columns:76px 1fr}.avatar{width:76px;height:76px;border-radius:14px}.profile-actions{grid-column:1/-1;justify-content:flex-start}.stats{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.profile-title{font-size:26px}.series-start-card{grid-template-columns:1fr}.modal-actions{justify-content:stretch}.modal-actions .btn{flex:1}}
+    @media(max-width:800px){.site-header{grid-template-columns:1fr 1fr;gap:4px}.profile-card{grid-template-columns:76px 1fr}.avatar{width:76px;height:76px;border-radius:14px}.profile-actions{grid-column:1/-1;justify-content:flex-start}.stats{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.profile-title{font-size:26px}.series-start-card{grid-template-columns:1fr}.form-actions{align-items:stretch;flex-direction:column}.form-actions-left,.form-actions-right{width:100%}.form-actions-right{justify-content:flex-end}.modal-actions{justify-content:stretch}.modal-actions .btn{flex:1}}
+  
   
     /* Нижняя шапка: контакты, благодарность и поддержка. */
     .kadry-footer{
@@ -391,8 +402,7 @@
       border-bottom-color:currentColor;
       outline:none;
     }
-
-  </style>
+</style>
   <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
@@ -417,28 +427,37 @@
         <div id="profile-sub" class="profile-sub"></div>
       </div>
       <div class="profile-actions">
-        <button id="edit-profile" class="btn" type="button" style="display:none">Редактировать профиль</button>
-        <button id="open-series-list" class="btn" type="button">Каталог</button>
+        <button id="edit-profile" class="btn" type="button" style="display:none">Настройки</button>
       </div>
     </section>
 
     <section id="edit-box" class="section edit-box">
-      <h2>Редактирование профиля</h2>
+      <h2>Настройки профиля</h2>
       <div class="form-grid">
         <label class="field">
           Ник
           <input id="display-name" type="text" maxlength="50" placeholder="Как вас показывать на сайте" />
         </label>
         <label class="field">
-          Ссылка
+          Айди страницы
           <input id="profile-link" type="text" maxlength="32" placeholder="например: igrok" inputmode="latin" autocapitalize="none" spellcheck="false" />
         </label>
+        <label class="field">
+          Описание профиля
+          <textarea id="profile-description" maxlength="2000" placeholder="Расскажите о себе, оставьте ссылки на личные страницы или напишите что угодно." spellcheck="true"></textarea>
+          <span class="field-hint">Ссылки, начинающиеся с http:// или https://, будут отображаться кликабельными.</span>
+        </label>
       </div>
-      <div class="muted" style="margin-top:8px">Ник может быть любым. Ссылка — только латинские буквы и цифры, 3–32 символа, без пробелов и специальных знаков.</div>
+      <div class="muted" style="margin-top:8px">Ник может быть любым. Айди страницы — только латинские буквы и цифры, 3–32 символа, без пробелов и специальных знаков.</div>
       <div id="save-error" class="error"></div>
       <div class="form-actions">
-        <button id="cancel-edit" class="btn" type="button">Отмена</button>
-        <button id="save-profile" class="btn primary" type="button">Сохранить</button>
+        <div class="form-actions-left">
+          <button id="save-profile" class="btn primary" type="button">Сохранить</button>
+          <button id="cancel-edit" class="btn" type="button">Отмена</button>
+        </div>
+        <div class="form-actions-right">
+          <button id="sign-out-profile" class="btn profile-sign-out" type="button" style="display:none">Выйти</button>
+        </div>
       </div>
     </section>
 
@@ -508,6 +527,34 @@
     return profile && profile.id ? 'profile.html?id=' + encodeURIComponent(profile.id) : 'profile.html';
   }
   function formatDate(value){ try { return value ? new Date(value).toLocaleDateString() : ''; } catch(_) { return ''; } }
+  function cleanProfileDescription(value){
+    return String(value || '').replace(/\r\n?/g, '\n').trim();
+  }
+  function appendLinkifiedDescription(container, value){
+    const text = cleanProfileDescription(value);
+    container.replaceChildren();
+    if(!text) return;
+    const urlRe = /https?:\/\/[^\s<>"']+/gi;
+    let lastIndex = 0;
+    let match;
+    while((match = urlRe.exec(text))){
+      if(match.index > lastIndex) container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      let url = match[0];
+      let trailing = '';
+      while(/[.,!?;:)]$/.test(url)){ trailing = url.slice(-1) + trailing; url = url.slice(0, -1); }
+      if(url){
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = url;
+        container.appendChild(a);
+      }
+      if(trailing) container.appendChild(document.createTextNode(trailing));
+      lastIndex = match.index + match[0].length;
+    }
+    if(lastIndex < text.length) container.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
   function profileSeriesStatusLabel(value){
     const state = String(value || '').trim();
     if(state === 'winner_frozen') return 'переигровка';
@@ -610,28 +657,32 @@
     renderAvatar(profile);
 
     const sub = el('profile-sub');
-    sub.textContent = '';
+    sub.replaceChildren();
+    const description = document.createElement('div');
+    description.className = 'profile-description';
+    appendLinkifiedDescription(description, profile.profile_description);
+    sub.appendChild(description);
     const created = formatDate(profile.created_at);
+    if(created){
+      const meta = document.createElement('div');
+      meta.className = 'profile-meta';
+      meta.textContent = 'На сайте с ' + created;
+      sub.appendChild(meta);
+    }
     const username = normalizeProfileLink(profile.username);
-    const parts = [];
-    if(username && isValidProfileLink(username)) parts.push('ссылка: /profile.html?u=' + username);
-    if(created) parts.push('на сайте с ' + created);
-    if(ownProfile) parts.push('это ваш профиль');
-    parts.forEach(function(part, idx){
-      if(idx) sub.appendChild(document.createTextNode(' · '));
-      const span = document.createElement('span'); span.textContent = part; sub.appendChild(span);
-    });
 
     if(username && isValidProfileLink(username) && location.search.indexOf('u=') === -1 && ownProfile){
       try { history.replaceState({}, document.title, profileHref(profile)); } catch(_) {}
     }
 
     el('edit-profile').style.display = ownProfile ? '' : 'none';
+    el('sign-out-profile').style.display = ownProfile ? '' : 'none';
   }
 
   function fillEditForm(profile){
     el('display-name').value = clean(profile.display_name);
     el('profile-link').value = normalizeProfileLink(profile.username);
+    el('profile-description').value = cleanProfileDescription(profile.profile_description);
     el('save-error').textContent = '';
   }
 
@@ -825,7 +876,7 @@
 
       let query = sb
         .from('public_profiles')
-        .select('id,username,display_name,avatar_url,created_at');
+        .select('id,username,display_name,avatar_url,created_at,profile_description');
       query = profileSlug ? query.eq('username', profileSlug) : query.eq('id', profileId);
       const { data, error } = await query.maybeSingle();
       if(!isFreshLoad(seq)) return;
@@ -849,7 +900,21 @@
     }
   }
 
-  el('open-series-list').onclick = function(){ location.href = 'index.html'; };
+  el('sign-out-profile').onclick = async function(){
+    if(!ownProfile || typeof window.kadrySignOut !== 'function') return;
+    const btn = el('sign-out-profile');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Выходим…';
+    try{
+      await window.kadrySignOut();
+      location.href = 'index.html';
+    }catch(e){
+      console.warn('[profile] sign out failed', e);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  };
   el('avatar').addEventListener('click', function(){ if(ownProfile) setAvatarModalOpen(true); });
   el('avatar').addEventListener('keydown', function(e){
     if(!ownProfile) return;
@@ -870,7 +935,11 @@
     btn.disabled = true;
     btn.textContent = 'Сохраняем…';
     const r = typeof window.kadrySaveProfile === 'function'
-      ? await window.kadrySaveProfile({ nick: el('display-name').value, username: el('profile-link').value })
+      ? await window.kadrySaveProfile({
+          nick: el('display-name').value,
+          username: el('profile-link').value,
+          profile_description: el('profile-description').value
+        })
       : { ok:false, error:new Error('Auth-слой не готов') };
     btn.disabled = false;
     btn.textContent = 'Сохранить';
@@ -887,7 +956,6 @@
   loadProfile();
 })();
 </script>
-
 
 <footer class="kadry-footer" aria-label="Контакты, благодарность и поддержка">
   <div class="kadry-footer__surface">
@@ -1008,6 +1076,7 @@
   });
 })();
 </script>
+
 
 </body>
 </html>

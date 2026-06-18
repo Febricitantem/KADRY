@@ -283,24 +283,101 @@
       filter:brightness(.95)
     }
 
-    /* Описание и комментарии */
+    /* Автор и описание серии */
     .desc-box{
       margin:18px 0 8px;
       background:#fff;
       border:1px solid #e5e7eb;
       border-radius:12px;
       box-shadow:0 1px 2px rgba(0,0,0,.04);
-      padding:14px
+      padding:16px;
+      display:grid;
+      grid-template-columns:140px minmax(0,1fr);
+      gap:18px;
+      align-items:stretch;
     }
-    .desc-box h2{
-      margin:0 0 8px;
-      font-size:18px;
-      font-weight:800
+    .series-starter{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:4px 18px 4px 2px;
+      border-right:1px solid #e5e7eb;
+      text-align:center;
     }
-        .desc-text{
+    .series-author-avatar{
+      width:60px;
+      height:60px;
+      min-width:60px;
+      border-radius:16px;
+      border:1px solid #cbd5e1;
+      background:#e2e8f0;
+      color:#334155;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      text-decoration:none;
+      font-size:22px;
+      font-weight:900;
+      line-height:1;
+      box-sizing:border-box;
+    }
+    .series-author-avatar img{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;
+    }
+    .series-author-avatar:hover{
+      border-color:#94a3b8;
+      box-shadow:0 2px 8px rgba(15,23,42,.14);
+    }
+    .series-author-name{
+      max-width:118px;
+      overflow-wrap:anywhere;
+      color:#0f172a;
+      font-size:13px;
+      font-weight:800;
+      text-decoration:none;
+      line-height:1.25;
+    }
+    .series-author-name:hover{
+      color:#2563eb;
+      text-decoration:underline;
+    }
+    .series-description-area{
+      position:relative;
+      min-width:0;
+      min-height:84px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding:6px 42px 6px 0;
+      box-sizing:border-box;
+    }
+    .series-description-area > .btn{
+      position:absolute;
+      right:0;
+      top:0;
+      z-index:1;
+    }
+    .desc-text{
       color:#334155;
       white-space:pre-wrap;
-      min-height:3em; /* чтобы блок не прыгал при подмене текста */
+      overflow-wrap:anywhere;
+      line-height:1.5;
+      font-size:15px;
+    }
+    .desc-text.is-empty{
+      color:#94a3b8;
+      font-style:italic;
+    }
+    .desc-form{
+      width:100%;
+      margin-top:0;
     }
 
 
@@ -418,6 +495,25 @@
       height:40px
     }
 
+    @media (max-width:680px){
+      .desc-box{
+        grid-template-columns:1fr;
+        gap:12px;
+        padding:14px;
+      }
+      .series-starter{
+        border-right:0;
+        border-bottom:1px solid #e5e7eb;
+        padding:0 0 12px;
+      }
+      .series-description-area{
+        min-height:72px;
+      }
+      .series-author-name{
+        max-width:100%;
+      }
+    }
+
     /* Админ-видимость */
     .admin-only{display:none}
     .is-admin .admin-only{display:block}
@@ -456,6 +552,7 @@
       font-size: 14px;
       color: #cbd5f5;
     }
+
 
     /* Нижняя шапка: контакты, благодарность и поддержка. */
     .kadry-footer{
@@ -780,8 +877,7 @@
       border-bottom-color:currentColor;
       outline:none;
     }
-
-  </style>
+</style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
 </head>
@@ -810,7 +906,6 @@
 
   <div class="wrap">
     <h1 id="series-title">Загрузка</h1>
-    <div id="series-author" class="author-line"></div>
 
     <div class="stage">
       <div class="viewport">
@@ -847,23 +942,21 @@
       <button id="go-to-vote" class="btn">Голосование серии</button>
     </div>
 
-    <!-- Описание серии -->
-    <section class="desc-box">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <h2 style="margin:0">Описание серии</h2>
-       <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
-      </div>
-      <div id="series-desc" class="desc-text" style="margin-top:8px">
-        Загрузка описания…
-      </div>
+    <!-- Автор и описание серии -->
+    <section class="desc-box" aria-label="Автор и описание серии">
+      <div id="series-author" class="series-starter" aria-live="polite"></div>
+      <div class="series-description-area">
+        <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
+        <div id="series-desc" class="desc-text">Загрузка описания…</div>
 
-      <form id="desc-form" style="display:none; margin-top:10px;" onsubmit="return false;">
-        <textarea id="desc-input" class="desc-text" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px; min-height:100px; resize:vertical" placeholder="Напишите описание серии…"></textarea>
-        <div class="bottom" style="justify-content:flex-end; gap:8px; margin-top:8px">
-          <button id="desc-cancel" class="btn" type="button">Отмена</button>
-          <button id="desc-save" class="btn primary" type="button">Сохранить</button>
-        </div>
-      </form>
+        <form id="desc-form" class="desc-form" style="display:none" onsubmit="return false;">
+          <textarea id="desc-input" class="desc-text" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px; min-height:100px; resize:vertical" placeholder="Напишите описание серии…"></textarea>
+          <div class="bottom" style="justify-content:flex-end; gap:8px; margin-top:8px">
+            <button id="desc-cancel" class="btn" type="button">Отмена</button>
+            <button id="desc-save" class="btn primary" type="button">Сохранить</button>
+          </div>
+        </form>
+      </div>
     </section>
 
     <!-- Комментарии -->
@@ -1072,16 +1165,8 @@ function syncAdminUI(){
 }
 
 
-  // Фразы-заглушки для пустого описания (НЕ сохраняются в БД — только отображаются)
-  var descriptionPlaceholders = [
-    'Hello, world!',
-    'It works!',
-    'Не судите строго.',
-    'Привет, это моя серия!',
-    'Вы кадр №…',
-    'Если вы это читаете — значит всё работает.'
-  ];
-  var activePlaceholder = null;
+  // На странице серии пустое описание всегда обозначается одной нейтральной заглушкой.
+  var emptyDescriptionText = 'Без описания';
   var currentSeriesRow = null;
   var profileCache = {};
   var reactionCounts = {};
@@ -1195,6 +1280,41 @@ function syncAdminUI(){
     target.appendChild(chip);
   }
 
+  function renderSeriesStarter(target, userId, fallback){
+    if(!target) return;
+    var profile = userId ? profileCache[userId] : null;
+    var name = compactAuthorName(profile, fallback || 'Автор не указан');
+    target.textContent = '';
+
+    target.appendChild(authorAvatarNode(userId, name, 'series-author-avatar'));
+
+    if(userId){
+      var link = document.createElement('a');
+      link.className = 'series-author-name';
+      link.href = makeProfileHref(userId);
+      link.textContent = name;
+      link.title = 'Открыть профиль';
+      link.setAttribute('aria-label', 'Открыть профиль ' + name);
+      link.addEventListener('click', function(e){ forceProfileOpen(e, userId); });
+      target.appendChild(link);
+    }else{
+      var text = document.createElement('span');
+      text.className = 'series-author-name';
+      text.textContent = name;
+      target.appendChild(text);
+    }
+  }
+
+  function setSeriesDescription(value){
+    var content = String(value || '').trim();
+    if(!descEl) return;
+    descEl.textContent = content || emptyDescriptionText;
+    descEl.classList.toggle('is-empty', !content);
+    if(descInput){
+      descInput.value = content;
+      descInput.defaultValue = content;
+    }
+  }
 
 
   function emptyReactionCounts(){
@@ -1444,26 +1564,15 @@ function syncAdminUI(){
       currentSeriesRow = s || null;
       if(!s){
         titleEl.textContent = 'Серия';
+        renderSeriesStarter(seriesAuthorEl, null, 'Автор не указан');
+        setSeriesDescription('');
         return;
       }
 
       titleEl.textContent = s.title || 'Серия';
       await loadPublicProfiles([s.created_by]);
-      renderAuthorLink(seriesAuthorEl, 'Начал: ', s.created_by, s.created_by ? 'Автор' : 'Старые данные без автора');
-
-      if (s.description && s.description.trim()) {
-        activePlaceholder = null;
-        descEl.textContent = s.description;
-        descInput.value = s.description;
-        descInput.defaultValue = s.description;
-      } else {
-        activePlaceholder = descriptionPlaceholders[
-          Math.floor(Math.random() * descriptionPlaceholders.length)
-        ];
-        descEl.textContent = activePlaceholder;
-        descInput.value = '';
-        descInput.defaultValue = '';
-      }
+      renderSeriesStarter(seriesAuthorEl, s.created_by, s.created_by ? 'Автор' : 'Автор не указан');
+      setSeriesDescription(s.description);
 
       syncAdminUI();
 
@@ -1527,7 +1636,9 @@ function syncAdminUI(){
     var who=compactAuthorName(profile, fallbackName);
     var avatar=authorAvatarNode(c.user_id, fallbackName, 'comment-avatar');
     var meta=document.createElement('div'); meta.className='meta';
-    var when=new Date(c.created_at).toLocaleString();
+    var when=new Date(c.created_at).toLocaleString('ru-RU', {
+      day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    });
     if(c.user_id){
       var authorLink=document.createElement('a');
       authorLink.className='author-link';
@@ -1644,44 +1755,30 @@ function syncAdminUI(){
 
   // Редактирование описания серии
   function toggleDescEdit(on){
-    if(on){ descForm.style.display='block'; descEl.style.display='none'; descInput.focus(); }
-    else  { descForm.style.display='none';  descEl.style.display='block'; }
+    if(!descForm || !descEl) return;
+    descForm.style.display = on ? 'block' : 'none';
+    descEl.hidden = !!on;
+    if(descEdit) descEdit.hidden = !!on;
+    if(on && descInput) descInput.focus();
   }
-  if(descEdit)   descEdit.addEventListener('click', function(){ toggleDescEdit(true); });
+  if(descEdit) descEdit.addEventListener('click', function(){ toggleDescEdit(true); });
   if(descCancel) descCancel.addEventListener('click', function(){
-    // Вернуть значение к последнему сохранённому
-    var last = descInput.defaultValue || '';
-    descInput.value = last;
-    if (last && last.trim()) {
-      activePlaceholder = null;
-      descEl.textContent = last;
-    } else {
-      if (!activePlaceholder) {
-        activePlaceholder = descriptionPlaceholders[Math.floor(Math.random() * descriptionPlaceholders.length)];
-      }
-      descEl.textContent = activePlaceholder;
-    }
+    var last = descInput ? (descInput.defaultValue || '') : '';
+    if(descInput) descInput.value = last;
+    setSeriesDescription(last);
     toggleDescEdit(false);
   });
   if(descSave){
     descSave.addEventListener('click', function(){
-      var content = (descInput.value||'').trim();
-      // Пустое описание не сохраняем — оставляем плейсхолдер на экране
-      if(!content){
-        descEl.textContent = activePlaceholder || descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
-        toggleDescEdit(false);
-        return;
-      }
-      // Описание может менять только админ
-            supabase
+      var content = (descInput.value || '').trim();
+      // Пустое значение разрешено: на странице оно отобразится как «Без описания».
+      supabase
         .from('series')
-        .update({ description: content })
+        .update({ description: content || null })
         .eq('id', seriesId)
         .then(function(r){
           if(r.error){ alert('Не удалось сохранить описание'); return; }
-          activePlaceholder = null;
-          descEl.textContent = content; 
-          descInput.defaultValue = content;
+          setSeriesDescription(content);
           toggleDescEdit(false);
           syncAdminUI();
         });
@@ -1746,7 +1843,6 @@ function syncAdminUI(){
   loadSeries().then(syncAdminUI);
 })();
 </script>
-
 
 <footer class="kadry-footer" aria-label="Контакты, благодарность и поддержка">
   <div class="kadry-footer__surface">
@@ -1867,6 +1963,7 @@ function syncAdminUI(){
   });
 })();
 </script>
+
 
 </body>
 </html>
