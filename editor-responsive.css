@@ -309,6 +309,50 @@ body.eyedropper-active #canvasWrap{ cursor:copy!important; }
 }
 .panel-note{ margin:10px 0 0; color:var(--kadry-muted); font-size:12px; line-height:1.38; }
 .panel-note b{ color:#c81e32; }
+
+/* Brief contextual hint for the non-standard reference layer.
+   The short delay keeps it from flashing while the pointer crosses the panel. */
+.reference-term{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  max-width:100%;
+  cursor:help;
+  outline:none;
+}
+.reference-term:focus-visible{
+  border-radius:4px;
+  box-shadow:0 0 0 2px rgba(31,128,255,.34);
+}
+.reference-tooltip{
+  position:absolute;
+  z-index:80;
+  left:0;
+  top:calc(100% + 7px);
+  width:max-content;
+  max-width:min(244px, calc(100vw - 34px));
+  padding:7px 9px;
+  border:1px solid #b8c9d9;
+  border-radius:8px;
+  background:#ffffff;
+  box-shadow:0 8px 20px rgba(15,23,42,.16);
+  color:#334155;
+  font-size:11px;
+  font-weight:700;
+  line-height:1.28;
+  white-space:normal;
+  opacity:0;
+  transform:translateY(-3px);
+  pointer-events:none;
+  transition:opacity .16s ease, transform .16s ease;
+  transition-delay:0s;
+}
+.reference-term:hover .reference-tooltip,
+.reference-term:focus-visible .reference-tooltip{
+  opacity:1;
+  transform:translateY(0);
+  transition-delay:.55s;
+}
 .tool-grid{
   display:grid;
   grid-template-columns:repeat(3,42px);
@@ -1370,4 +1414,145 @@ body.site-closed .editor-layout{ pointer-events:none; filter:grayscale(.2); }
 @media (max-width:979px) and (orientation:landscape){
   .site-header{ gap:6px; padding-left:8px; padding-right:8px; }
   #saveDrawBtn{ flex-basis:72px; }
+}
+
+
+/* === Editor density and unified avatar-layout patch (2026-06-18) ===
+   Desktop at browser 100% is intentionally sized to the former comfortable 90% view.
+   The canvas content resolutions stay untouched: series 1920×1080, avatar 600×600. */
+@media (min-width:980px){
+  :root{
+    --kadry-header-h:64px;
+    --kadry-left-w:194px;
+    --kadry-right-w:274px;
+  }
+
+  .site-header .brand .above{ font-size:19px; }
+  .site-header .brand .below{ margin-top:4px; font-size:10px; }
+  .site-header .hslot{ font-size:16px; }
+  #saveDrawBtn,
+  #saveAvatarBtn{
+    min-width:102px;
+    height:38px;
+    padding:0 14px;
+    border:0;
+    border-radius:10px;
+    background:var(--kadry-blue);
+    color:#fff;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(31,128,255,.20);
+  }
+  #saveAvatarBtn{ grid-column:4; justify-self:center; align-self:center; }
+
+  .canvas-fit-area{ inset:18px 18px 66px; }
+  .control-column.left-column{ padding:10px 9px 12px; }
+  .control-panel{ padding:10px; margin-bottom:8px; border-radius:11px; }
+  .control-panel h2{ margin-bottom:8px; font-size:14px; }
+  .tool-grid{ grid-template-columns:repeat(3,36px); gap:7px; }
+  .tool-button{ width:36px; height:36px; }
+  .field-group{ margin-top:9px; }
+  .field-label{ font-size:12px; }
+
+  /* Keep colour history compact: ten swatches in one row. The released space is
+     reserved for the layer list, which is visible without scrolling from 3+ layers. */
+  .control-column.right-column{
+    grid-template-rows:auto minmax(146px,1fr) auto;
+    gap:7px;
+    padding:7px 9px;
+  }
+  .right-column .control-panel{ padding:8px 9px; }
+  .right-column .color-wheel-wrap{
+    width:clamp(108px,13vh,130px);
+    margin:0 auto 2px;
+  }
+  .right-column .color-picker-actions{ min-height:28px; margin:0 0 2px; }
+  .right-column .color-picker-actions #eyedropperBtn{ width:28px; height:28px; border-radius:9px; }
+  .right-column .color-slider-row{ margin-top:3px; }
+  .right-column .color-slider-track,
+  .right-column .color-slider-track input,
+  .right-column .color-slider-track input::-webkit-slider-runnable-track,
+  .right-column .color-slider-track input::-moz-range-track{ height:11px; }
+  .right-column .color-history{
+    grid-template-columns:repeat(10,minmax(0,1fr));
+    gap:3px;
+    margin-top:5px;
+  }
+  .right-column .color-history-swatch{ min-height:18px; border-radius:4px; }
+
+  .right-column .layers-actions{ margin-bottom:4px; }
+  .right-column .panel-action{ min-width:29px; height:29px; }
+  .right-column .field-label{ margin-bottom:2px; font-size:11.5px; }
+  .right-column #layerOpacity{ margin:1px 0 5px; }
+  .right-column .layers-panel{ min-height:146px; }
+  .right-column #layerList{
+    min-height:132px;
+    max-height:none;
+    scrollbar-gutter:stable;
+  }
+  .right-column #layerList > div{
+    min-height:34px!important;
+    margin:3px 0!important;
+    padding:3px!important;
+  }
+  .right-column #layerList button,
+  .right-column #layerList input{ height:24px; }
+  .right-column .layers-panel .panel-note{ margin-top:4px; font-size:10px; line-height:1.18; }
+  .right-column .reference-panel .panel-note{ margin-top:4px; font-size:10px; line-height:1.18; }
+  .right-column .reference-file{ gap:4px; }
+  .right-column #refInput,
+  .right-column #addRefBtn{ min-height:29px; font-size:11px; }
+}
+
+@media (min-width:980px) and (max-width:1280px){
+  :root{ --kadry-header-h:62px; --kadry-left-w:184px; --kadry-right-w:262px; }
+  .site-header .hslot{ font-size:14px; }
+  .canvas-fit-area{ inset:14px 14px 60px; }
+}
+
+@media (min-width:980px) and (max-height:840px){
+  .control-column.right-column{ grid-template-rows:auto minmax(132px,1fr) auto; }
+  .right-column .color-wheel-wrap{ width:clamp(100px,12vh,118px); }
+  .right-column .layers-panel{ min-height:132px; }
+  .right-column #layerList{ min-height:122px; }
+  .right-column .reference-panel .panel-note,
+  .right-column .layers-panel .panel-note{ display:none; }
+}
+
+/* Avatar now uses the same editor shell. Its fit function is square-only; these
+   rules only place feedback and the save action, never alter the image ratio. */
+.avatar-editor .avatar-save-status{
+  position:absolute;
+  z-index:20;
+  left:50%;
+  top:10px;
+  max-width:min(70%,520px);
+  transform:translateX(-50%);
+  color:#334155;
+  font-size:12px;
+  font-weight:700;
+  text-align:center;
+  pointer-events:none;
+}
+.avatar-editor .avatar-save-status.error{ color:#b42338; }
+
+@media (max-width:979px){
+  #saveAvatarBtn{
+    flex:0 0 72px;
+    height:38px;
+    padding:0 7px;
+    border:0;
+    border-radius:10px;
+    background:var(--kadry-blue);
+    color:#fff;
+    font-size:12px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .avatar-editor .avatar-save-status{
+    top:6px;
+    max-width:calc(100% - 28px);
+    font-size:11px;
+  }
 }

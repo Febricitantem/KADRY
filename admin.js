@@ -80,6 +80,14 @@
     return String(value || '').trim().replace(/\s+/g, ' ');
   }
 
+  function cleanProfileDescription(value) {
+    return String(value || '').replace(/\r\n?/g, '\n').trim();
+  }
+
+  function validateProfileDescription(value) {
+    return String(value || '').length <= 2000 ? '' : 'Описание профиля не может быть длиннее 2000 символов.';
+  }
+
   function emailLocalPart(user) {
     var email = user && user.email ? String(user.email).trim() : '';
     if (!email || email.indexOf('@') === -1) return '';
@@ -180,15 +188,16 @@
 
     var nick = cleanProfileText(draft && (draft.nick || draft.display_name));
     var username = normalizeProfileLink(draft && (draft.username || draft.profile_link));
-    var validation = validateNick(nick) || validateProfileLink(username);
+    var profileDescription = cleanProfileDescription(draft && (draft.profile_description || draft.description));
+    var validation = validateNick(nick) || validateProfileLink(username) || validateProfileDescription(profileDescription);
     if (validation) return { ok: false, error: new Error(validation) };
 
     try {
       var res = await supabase
         .from('profiles')
-        .update({ display_name: nick, username: username || null })
+        .update({ display_name: nick, username: username || null, profile_description: profileDescription || null })
         .eq('id', user.id)
-        .select('id,is_admin,username,display_name,avatar_url,provider,created_at,updated_at')
+        .select('id,is_admin,username,display_name,avatar_url,provider,created_at,updated_at,profile_description')
         .single();
 
       if (res.error) {
@@ -273,7 +282,7 @@
     try {
       var res = await supabase
         .from('profiles')
-        .select('id,is_admin,username,display_name,avatar_url,provider,created_at,updated_at')
+        .select('id,is_admin,username,display_name,avatar_url,provider,created_at,updated_at,profile_description')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -456,9 +465,8 @@
     style.id = 'kadry-auth-styles';
     style.textContent = [
       '.kadry-auth-slot{gap:8px;min-width:0;}',
-      '.kadry-auth-login,.kadry-auth-logout{border:1px solid #d1d5db;background:#fff;color:#0f172a;border-radius:10px;padding:7px 10px;font:inherit;font-weight:700;cursor:pointer;}',
-      '.kadry-auth-login:hover,.kadry-auth-logout:hover{background:#e5e7eb40;}',
-      '.kadry-auth-logout{font-size:12px;padding:5px 8px;font-weight:600;}',
+      '.kadry-auth-login{border:1px solid #d1d5db;background:#fff;color:#0f172a;border-radius:10px;padding:7px 10px;font:inherit;font-weight:700;cursor:pointer;}',
+      '.kadry-auth-login:hover{background:#e5e7eb40;}',
       '.kadry-auth-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       'a.kadry-auth-name{color:inherit;text-decoration:none;border-bottom:1px dashed rgba(15,23,42,.35);}',
       'a.kadry-auth-name:hover{color:#2563eb;border-bottom-color:#2563eb;}',
@@ -475,7 +483,7 @@
       '.kadry-auth-btn.primary{background:#2563eb;color:#fff;border-color:#2563eb;}',
       '.kadry-auth-btn.danger{background:#7f1d1d;color:#fee2e2;border-color:#991b1b;}',
       '.kadry-auth-required{outline:2px solid rgba(37,99,235,.35);outline-offset:2px;}',
-      '@media (max-width:768px){.kadry-auth-name{max-width:110px}.kadry-auth-slot{flex-wrap:wrap}.kadry-auth-logout{font-size:11px;padding:4px 7px}}'
+      '@media (max-width:768px){.kadry-auth-name{max-width:110px}.kadry-auth-slot{flex-wrap:wrap}}'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -552,16 +560,8 @@
         slot.appendChild(badge);
       }
 
-      var logoutBtn = document.createElement('button');
-      logoutBtn.type = 'button';
-      logoutBtn.className = 'kadry-auth-logout';
-      logoutBtn.textContent = 'Выйти';
-      logoutBtn.addEventListener('click', async function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        await adminLogout();
-      });
-      slot.appendChild(logoutBtn);
+      // Выход находится на собственной странице профиля, а не в общей шапке.
+      // Это сохраняет компактную навигацию на всех публичных страницах.
     });
   }
 

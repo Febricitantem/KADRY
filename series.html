@@ -283,24 +283,101 @@
       filter:brightness(.95)
     }
 
-    /* Описание и комментарии */
+    /* Автор и описание серии */
     .desc-box{
       margin:18px 0 8px;
       background:#fff;
       border:1px solid #e5e7eb;
       border-radius:12px;
       box-shadow:0 1px 2px rgba(0,0,0,.04);
-      padding:14px
+      padding:16px;
+      display:grid;
+      grid-template-columns:140px minmax(0,1fr);
+      gap:18px;
+      align-items:stretch;
     }
-    .desc-box h2{
-      margin:0 0 8px;
-      font-size:18px;
-      font-weight:800
+    .series-starter{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:4px 18px 4px 2px;
+      border-right:1px solid #e5e7eb;
+      text-align:center;
     }
-        .desc-text{
+    .series-author-avatar{
+      width:60px;
+      height:60px;
+      min-width:60px;
+      border-radius:16px;
+      border:1px solid #cbd5e1;
+      background:#e2e8f0;
+      color:#334155;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      text-decoration:none;
+      font-size:22px;
+      font-weight:900;
+      line-height:1;
+      box-sizing:border-box;
+    }
+    .series-author-avatar img{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;
+    }
+    .series-author-avatar:hover{
+      border-color:#94a3b8;
+      box-shadow:0 2px 8px rgba(15,23,42,.14);
+    }
+    .series-author-name{
+      max-width:118px;
+      overflow-wrap:anywhere;
+      color:#0f172a;
+      font-size:13px;
+      font-weight:800;
+      text-decoration:none;
+      line-height:1.25;
+    }
+    .series-author-name:hover{
+      color:#2563eb;
+      text-decoration:underline;
+    }
+    .series-description-area{
+      position:relative;
+      min-width:0;
+      min-height:84px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding:6px 42px 6px 0;
+      box-sizing:border-box;
+    }
+    .series-description-area > .btn{
+      position:absolute;
+      right:0;
+      top:0;
+      z-index:1;
+    }
+    .desc-text{
       color:#334155;
       white-space:pre-wrap;
-      min-height:3em; /* чтобы блок не прыгал при подмене текста */
+      overflow-wrap:anywhere;
+      line-height:1.5;
+      font-size:15px;
+    }
+    .desc-text.is-empty{
+      color:#94a3b8;
+      font-style:italic;
+    }
+    .desc-form{
+      width:100%;
+      margin-top:0;
     }
 
 
@@ -418,6 +495,25 @@
       height:40px
     }
 
+    @media (max-width:680px){
+      .desc-box{
+        grid-template-columns:1fr;
+        gap:12px;
+        padding:14px;
+      }
+      .series-starter{
+        border-right:0;
+        border-bottom:1px solid #e5e7eb;
+        padding:0 0 12px;
+      }
+      .series-description-area{
+        min-height:72px;
+      }
+      .series-author-name{
+        max-width:100%;
+      }
+    }
+
     /* Админ-видимость */
     .admin-only{display:none}
     .is-admin .admin-only{display:block}
@@ -456,6 +552,282 @@
       font-size: 14px;
       color: #cbd5f5;
     }
+
+    /* Нижняя шапка: контакты, благодарность и поддержка. */
+    .kadry-footer{
+      width:min(1200px, calc(100% - 36px));
+      margin:42px auto 28px;
+      box-sizing:border-box;
+      color:#0f172a;
+    }
+    .kadry-footer__surface{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:20px;
+      box-shadow:0 1px 2px rgba(15,23,42,.04);
+      overflow:hidden;
+    }
+    .kadry-footer__main{
+      display:grid;
+      grid-template-columns:minmax(230px,.9fr) minmax(280px,1fr) minmax(300px,1.2fr);
+      gap:0;
+      align-items:stretch;
+      padding:22px;
+    }
+    .kadry-footer__column{
+      min-width:0;
+      padding:0 22px;
+      border-left:1px solid #e5e7eb;
+    }
+    .kadry-footer__column:first-child{
+      padding-left:0;
+      border-left:0;
+    }
+    .kadry-footer__column:last-child{padding-right:0;}
+    .kadry-footer__title{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0 0 14px;
+      font-size:18px;
+      line-height:1.2;
+      font-weight:850;
+      letter-spacing:-.01em;
+    }
+    .kadry-footer__title::before{
+      display:inline-grid;
+      place-items:center;
+      width:26px;
+      height:26px;
+      border-radius:9px;
+      background:#eff6ff;
+      color:#2563eb;
+      font-size:15px;
+      content:'✦';
+    }
+    .kadry-footer__column--contacts .kadry-footer__title::before{content:'↗';}
+    .kadry-footer__column--support .kadry-footer__title::before{
+      content:'♡';
+      background:#fff1f2;
+      color:#e11d48;
+      font-size:19px;
+    }
+    .kadry-footer__artist{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .kadry-footer__visual-placeholder{
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      width:74px;
+      height:74px;
+      padding:7px;
+      box-sizing:border-box;
+      border:1px dashed #94a3b8;
+      border-radius:16px;
+      background:linear-gradient(135deg,#f8fafc,#eef2ff);
+      color:#64748b;
+      text-align:center;
+      font-size:10px;
+      line-height:1.2;
+    }
+    .kadry-footer__visual-placeholder--support{
+      width:92px;
+      height:92px;
+      border-color:#fda4af;
+      border-radius:20px;
+      background:linear-gradient(135deg,#fff1f2,#fff7ed);
+      color:#be123c;
+    }
+    .kadry-footer__copy{
+      margin:0;
+      color:#475569;
+      font-size:13px;
+      line-height:1.5;
+    }
+    .kadry-footer__link,
+    .kadry-footer__button{
+      color:#2563eb;
+      font-weight:750;
+      text-decoration:none;
+      cursor:pointer;
+    }
+    .kadry-footer__link{
+      text-decoration:underline;
+      text-decoration-thickness:1px;
+      text-underline-offset:3px;
+    }
+    .kadry-footer__link:hover,
+    .kadry-footer__link:focus-visible{color:#1d4ed8;}
+    .kadry-footer__contact-stack{display:grid;gap:12px;}
+    .kadry-footer__contact-card{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      width:100%;
+      padding:11px 12px;
+      box-sizing:border-box;
+      border:1px solid #dbe3ee;
+      border-radius:12px;
+      background:#f8fafc;
+      color:#0f172a;
+      text-decoration:none;
+      font-size:14px;
+      font-weight:750;
+      transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease,background .14s ease;
+    }
+    .kadry-footer__contact-card::after{
+      content:'↗';
+      color:#64748b;
+      font-size:16px;
+      line-height:1;
+    }
+    .kadry-footer__contact-card:hover,
+    .kadry-footer__contact-card:focus-visible{
+      transform:translateY(-1px);
+      border-color:#93c5fd;
+      background:#fff;
+      box-shadow:0 8px 16px rgba(15,23,42,.08);
+      outline:none;
+    }
+    .kadry-footer__contact-note{
+      margin:4px 0 0;
+      color:#64748b;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .kadry-footer__admins{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .kadry-footer__admin-link{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:38px;
+      padding:8px;
+      box-sizing:border-box;
+      border:1px solid #dbe3ee;
+      border-radius:10px;
+      color:#334155;
+      background:#fff;
+      text-align:center;
+      text-decoration:none;
+      font-size:12px;
+      font-weight:750;
+      transition:border-color .14s ease,background .14s ease,color .14s ease;
+    }
+    .kadry-footer__admin-link:hover,
+    .kadry-footer__admin-link:focus-visible{
+      border-color:#93c5fd;
+      background:#eff6ff;
+      color:#1d4ed8;
+      outline:none;
+    }
+    .kadry-footer__support-box{
+      display:flex;
+      align-items:center;
+      gap:15px;
+      min-height:132px;
+      padding:16px;
+      box-sizing:border-box;
+      border:1px solid #fecdd3;
+      border-radius:16px;
+      background:linear-gradient(135deg,#fff8f8,#fffaf4);
+    }
+    .kadry-footer__support-copy{min-width:0;flex:1;}
+    .kadry-footer__support-copy .kadry-footer__title{margin-bottom:8px;}
+    .kadry-footer__boosty{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-height:42px;
+      margin-top:13px;
+      padding:0 15px;
+      border-radius:12px;
+      background:#e11d48;
+      color:#fff;
+      text-decoration:none;
+      font-size:14px;
+      font-weight:800;
+      box-shadow:0 8px 16px rgba(225,29,72,.16);
+      transition:transform .14s ease,background .14s ease,box-shadow .14s ease;
+    }
+    .kadry-footer__boosty::before{content:'♡';font-size:18px;line-height:1;}
+    .kadry-footer__boosty:hover,
+    .kadry-footer__boosty:focus-visible{
+      transform:translateY(-1px);
+      background:#be123c;
+      box-shadow:0 11px 19px rgba(225,29,72,.22);
+      outline:none;
+    }
+    .kadry-footer__bottom{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:54px;
+      padding:0 22px;
+      border-top:1px solid #e5e7eb;
+      color:#475569;
+      text-align:center;
+      font-size:14px;
+      font-weight:650;
+    }
+    .kadry-footer__bottom span{color:#e11d48;}
+    .kadry-footer__toast{
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      z-index:10050;
+      transform:translate(-50%, 12px);
+      max-width:calc(100vw - 32px);
+      padding:9px 12px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#0f172a;
+      color:#fff;
+      font-size:13px;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .16s ease,transform .16s ease;
+      box-shadow:0 14px 30px rgba(15,23,42,.24);
+    }
+    .kadry-footer__toast.is-visible{opacity:1;transform:translate(-50%,0);}
+    @media (max-width: 900px){
+      .kadry-footer__main{grid-template-columns:1fr 1fr;padding:20px;}
+      .kadry-footer__column{padding:0 18px;}
+      .kadry-footer__column--support{
+        grid-column:1 / -1;
+        margin-top:20px;
+        padding:20px 0 0;
+        border-top:1px solid #e5e7eb;
+        border-left:0;
+      }
+    }
+    @media (max-width: 620px){
+      .kadry-footer{width:min(100% - 20px, 1200px);margin:28px auto 18px;}
+      .kadry-footer__main{display:block;padding:16px;}
+      .kadry-footer__column,
+      .kadry-footer__column:first-child,
+      .kadry-footer__column:last-child{
+        padding:0;
+        border:0;
+      }
+      .kadry-footer__column + .kadry-footer__column{
+        margin-top:20px;
+        padding-top:20px;
+        border-top:1px solid #e5e7eb;
+      }
+      .kadry-footer__column--support{margin-top:20px;}
+      .kadry-footer__support-box{align-items:flex-start;}
+      .kadry-footer__visual-placeholder--support{width:74px;height:74px;border-radius:16px;}
+      .kadry-footer__bottom{min-height:48px;padding:0 16px;font-size:13px;}
+    }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
@@ -485,7 +857,6 @@
 
   <div class="wrap">
     <h1 id="series-title">Загрузка</h1>
-    <div id="series-author" class="author-line"></div>
 
     <div class="stage">
       <div class="viewport">
@@ -522,23 +893,21 @@
       <button id="go-to-vote" class="btn">Голосование серии</button>
     </div>
 
-    <!-- Описание серии -->
-    <section class="desc-box">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <h2 style="margin:0">Описание серии</h2>
-       <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
-      </div>
-      <div id="series-desc" class="desc-text" style="margin-top:8px">
-        Загрузка описания…
-      </div>
+    <!-- Автор и описание серии -->
+    <section class="desc-box" aria-label="Автор и описание серии">
+      <div id="series-author" class="series-starter" aria-live="polite"></div>
+      <div class="series-description-area">
+        <button id="desc-edit-btn" class="btn admin-only" title="Редактировать описание">✎</button>
+        <div id="series-desc" class="desc-text">Загрузка описания…</div>
 
-      <form id="desc-form" style="display:none; margin-top:10px;" onsubmit="return false;">
-        <textarea id="desc-input" class="desc-text" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px; min-height:100px; resize:vertical" placeholder="Напишите описание серии…"></textarea>
-        <div class="bottom" style="justify-content:flex-end; gap:8px; margin-top:8px">
-          <button id="desc-cancel" class="btn" type="button">Отмена</button>
-          <button id="desc-save" class="btn primary" type="button">Сохранить</button>
-        </div>
-      </form>
+        <form id="desc-form" class="desc-form" style="display:none" onsubmit="return false;">
+          <textarea id="desc-input" class="desc-text" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px; min-height:100px; resize:vertical" placeholder="Напишите описание серии…"></textarea>
+          <div class="bottom" style="justify-content:flex-end; gap:8px; margin-top:8px">
+            <button id="desc-cancel" class="btn" type="button">Отмена</button>
+            <button id="desc-save" class="btn primary" type="button">Сохранить</button>
+          </div>
+        </form>
+      </div>
     </section>
 
     <!-- Комментарии -->
@@ -560,6 +929,70 @@
       <button id="delete-series" class="btn danger">Удалить серию</button>
     </div>
   </div>
+
+
+  <footer class="kadry-footer" aria-label="Контакты, благодарность и поддержка">
+    <div class="kadry-footer__surface">
+      <div class="kadry-footer__main">
+        <section class="kadry-footer__column kadry-footer__column--thanks">
+          <h2 class="kadry-footer__title">Благодарим</h2>
+          <div class="kadry-footer__artist">
+            <div class="kadry-footer__visual-placeholder" role="img" aria-label="Место для будущей иллюстрации художника">иллюстрация<br>скоро</div>
+            <p class="kadry-footer__copy">
+              За иконки и анимации — <a class="kadry-footer__link" href="#" data-kadry-footer-placeholder="Страница художника" title="Ссылка появится скоро">художник</a>.
+              <br>Спасибо за визуальный стиль «Кадров».
+            </p>
+          </div>
+        </section>
+
+        <section class="kadry-footer__column kadry-footer__column--contacts">
+          <h2 class="kadry-footer__title">Связь и предложения</h2>
+          <div class="kadry-footer__contact-stack">
+            <a class="kadry-footer__contact-card" href="#" data-kadry-footer-placeholder="Общий чат «Кадров»" title="Ссылка появится скоро">Общий чат «Кадров»</a>
+            <p class="kadry-footer__contact-note">Предложения, идеи, сообщения об ошибках и вопросы — в общем чате.</p>
+            <div>
+              <p class="kadry-footer__contact-note" style="margin:0 0 8px;font-weight:750;color:#334155;">Контакты админов</p>
+              <div class="kadry-footer__admins">
+                <a class="kadry-footer__admin-link" href="#" data-kadry-footer-placeholder="Контакт первого админа" title="Ссылка появится скоро">Админ 1</a>
+                <a class="kadry-footer__admin-link" href="#" data-kadry-footer-placeholder="Контакт второго админа" title="Ссылка появится скоро">Админ 2</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="kadry-footer__column kadry-footer__column--support">
+          <div class="kadry-footer__support-box">
+            <div class="kadry-footer__support-copy">
+              <h2 class="kadry-footer__title">Поддержите проект</h2>
+              <p class="kadry-footer__copy">Поддержка помогает сохранять «Кадры» живыми: оплачивать хостинг и развивать новые функции.</p>
+              <a class="kadry-footer__boosty" href="#" data-kadry-footer-placeholder="Поддержка проекта на Boosty" title="Ссылка появится скоро">Поддержать на Boosty</a>
+            </div>
+            <div class="kadry-footer__visual-placeholder kadry-footer__visual-placeholder--support" role="img" aria-label="Место для будущей иллюстрации поддержки">иллюстрация<br>скоро</div>
+          </div>
+        </section>
+      </div>
+      <div class="kadry-footer__bottom">Спасибо, что вы с нами! <span aria-hidden="true">♥</span></div>
+    </div>
+    <div class="kadry-footer__toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  </footer>
+
+<script>
+(function(){
+  'use strict';
+  var toastTimer = null;
+  document.addEventListener('click', function(event){
+    var link = event.target && event.target.closest ? event.target.closest('[data-kadry-footer-placeholder]') : null;
+    if(!link) return;
+    event.preventDefault();
+    var toast = document.querySelector('.kadry-footer__toast');
+    if(!toast) return;
+    toast.textContent = 'Ссылка «' + (link.getAttribute('data-kadry-footer-placeholder') || 'Контакт') + '» будет добавлена позже.';
+    toast.classList.add('is-visible');
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('is-visible'); }, 2600);
+  });
+})();
+</script>
 
 <script>
 (function(){
@@ -747,16 +1180,8 @@ function syncAdminUI(){
 }
 
 
-  // Фразы-заглушки для пустого описания (НЕ сохраняются в БД — только отображаются)
-  var descriptionPlaceholders = [
-    'Hello, world!',
-    'It works!',
-    'Не судите строго.',
-    'Привет, это моя серия!',
-    'Вы кадр №…',
-    'Если вы это читаете — значит всё работает.'
-  ];
-  var activePlaceholder = null;
+  // На странице серии пустое описание всегда обозначается одной нейтральной заглушкой.
+  var emptyDescriptionText = 'Без описания';
   var currentSeriesRow = null;
   var profileCache = {};
   var reactionCounts = {};
@@ -870,6 +1295,41 @@ function syncAdminUI(){
     target.appendChild(chip);
   }
 
+  function renderSeriesStarter(target, userId, fallback){
+    if(!target) return;
+    var profile = userId ? profileCache[userId] : null;
+    var name = compactAuthorName(profile, fallback || 'Автор не указан');
+    target.textContent = '';
+
+    target.appendChild(authorAvatarNode(userId, name, 'series-author-avatar'));
+
+    if(userId){
+      var link = document.createElement('a');
+      link.className = 'series-author-name';
+      link.href = makeProfileHref(userId);
+      link.textContent = name;
+      link.title = 'Открыть профиль';
+      link.setAttribute('aria-label', 'Открыть профиль ' + name);
+      link.addEventListener('click', function(e){ forceProfileOpen(e, userId); });
+      target.appendChild(link);
+    }else{
+      var text = document.createElement('span');
+      text.className = 'series-author-name';
+      text.textContent = name;
+      target.appendChild(text);
+    }
+  }
+
+  function setSeriesDescription(value){
+    var content = String(value || '').trim();
+    if(!descEl) return;
+    descEl.textContent = content || emptyDescriptionText;
+    descEl.classList.toggle('is-empty', !content);
+    if(descInput){
+      descInput.value = content;
+      descInput.defaultValue = content;
+    }
+  }
 
 
   function emptyReactionCounts(){
@@ -1119,26 +1579,15 @@ function syncAdminUI(){
       currentSeriesRow = s || null;
       if(!s){
         titleEl.textContent = 'Серия';
+        renderSeriesStarter(seriesAuthorEl, null, 'Автор не указан');
+        setSeriesDescription('');
         return;
       }
 
       titleEl.textContent = s.title || 'Серия';
       await loadPublicProfiles([s.created_by]);
-      renderAuthorLink(seriesAuthorEl, 'Начал: ', s.created_by, s.created_by ? 'Автор' : 'Старые данные без автора');
-
-      if (s.description && s.description.trim()) {
-        activePlaceholder = null;
-        descEl.textContent = s.description;
-        descInput.value = s.description;
-        descInput.defaultValue = s.description;
-      } else {
-        activePlaceholder = descriptionPlaceholders[
-          Math.floor(Math.random() * descriptionPlaceholders.length)
-        ];
-        descEl.textContent = activePlaceholder;
-        descInput.value = '';
-        descInput.defaultValue = '';
-      }
+      renderSeriesStarter(seriesAuthorEl, s.created_by, s.created_by ? 'Автор' : 'Автор не указан');
+      setSeriesDescription(s.description);
 
       syncAdminUI();
 
@@ -1202,7 +1651,9 @@ function syncAdminUI(){
     var who=compactAuthorName(profile, fallbackName);
     var avatar=authorAvatarNode(c.user_id, fallbackName, 'comment-avatar');
     var meta=document.createElement('div'); meta.className='meta';
-    var when=new Date(c.created_at).toLocaleString();
+    var when=new Date(c.created_at).toLocaleString('ru-RU', {
+      day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    });
     if(c.user_id){
       var authorLink=document.createElement('a');
       authorLink.className='author-link';
@@ -1319,44 +1770,30 @@ function syncAdminUI(){
 
   // Редактирование описания серии
   function toggleDescEdit(on){
-    if(on){ descForm.style.display='block'; descEl.style.display='none'; descInput.focus(); }
-    else  { descForm.style.display='none';  descEl.style.display='block'; }
+    if(!descForm || !descEl) return;
+    descForm.style.display = on ? 'block' : 'none';
+    descEl.hidden = !!on;
+    if(descEdit) descEdit.hidden = !!on;
+    if(on && descInput) descInput.focus();
   }
-  if(descEdit)   descEdit.addEventListener('click', function(){ toggleDescEdit(true); });
+  if(descEdit) descEdit.addEventListener('click', function(){ toggleDescEdit(true); });
   if(descCancel) descCancel.addEventListener('click', function(){
-    // Вернуть значение к последнему сохранённому
-    var last = descInput.defaultValue || '';
-    descInput.value = last;
-    if (last && last.trim()) {
-      activePlaceholder = null;
-      descEl.textContent = last;
-    } else {
-      if (!activePlaceholder) {
-        activePlaceholder = descriptionPlaceholders[Math.floor(Math.random() * descriptionPlaceholders.length)];
-      }
-      descEl.textContent = activePlaceholder;
-    }
+    var last = descInput ? (descInput.defaultValue || '') : '';
+    if(descInput) descInput.value = last;
+    setSeriesDescription(last);
     toggleDescEdit(false);
   });
   if(descSave){
     descSave.addEventListener('click', function(){
-      var content = (descInput.value||'').trim();
-      // Пустое описание не сохраняем — оставляем плейсхолдер на экране
-      if(!content){
-        descEl.textContent = activePlaceholder || descriptionPlaceholders[Math.floor(Math.random()*descriptionPlaceholders.length)];
-        toggleDescEdit(false);
-        return;
-      }
-      // Описание может менять только админ
-            supabase
+      var content = (descInput.value || '').trim();
+      // Пустое значение разрешено: на странице оно отобразится как «Без описания».
+      supabase
         .from('series')
-        .update({ description: content })
+        .update({ description: content || null })
         .eq('id', seriesId)
         .then(function(r){
           if(r.error){ alert('Не удалось сохранить описание'); return; }
-          activePlaceholder = null;
-          descEl.textContent = content; 
-          descInput.defaultValue = content;
+          setSeriesDescription(content);
           toggleDescEdit(false);
           syncAdminUI();
         });
