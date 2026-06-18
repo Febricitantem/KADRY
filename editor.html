@@ -26,6 +26,7 @@
   </div>
 
   <header class="site-header">
+    <a id="backSeries" href="#" class="editor-back" title="Вернуться в серию">← Серия</a>
     <a id="editorBrand" class="brand" href="index.html" aria-label="Вернуться в каталог Kadry" title="Вернуться в каталог">
       <div class="above">Редактор</div>
       <div class="below">KADRY</div>
@@ -167,7 +168,7 @@
           </section>
 
           <section class="control-panel reference-panel" data-panel="reference">
-            <h2><span class="reference-term" tabindex="0" role="note" aria-label="Референс: вспомогательный слой, который виден только в редакторе и не попадает в экспорт.">Референс<span class="reference-tooltip" role="tooltip">Вспомогательный слой: виден только в редакторе и не попадёт в экспорт.</span></span></h2>
+            <h2>Референс</h2>
             <div class="reference-file">
               <input type="file" id="refInput" name="refInput" accept="image/*">
               <button id="addRefBtn" type="button">Добавить как слой</button>
@@ -183,7 +184,7 @@
       <button class="mobile-nav-btn" type="button" data-editor-panel="brush">Кисть</button>
       <button class="mobile-nav-btn" type="button" data-editor-panel="color">Цвет</button>
       <button class="mobile-nav-btn" type="button" data-editor-panel="layers">Слои</button>
-      <button class="mobile-nav-btn" type="button" data-editor-panel="reference" title="Референс: вспомогательный слой, который не войдёт в экспорт." aria-label="Референс: вспомогательный слой, который не войдёт в экспорт.">Реф.</button>
+      <button class="mobile-nav-btn" type="button" data-editor-panel="reference">Реф.</button>
     </nav>
   </div>
 
@@ -234,20 +235,10 @@
             </section>
             <section class="help-page" data-page="3">
               <p><strong>Лупа, слои и время</strong></p>
-              <ul><li>В режиме лупы колесо изменяет масштаб, а перетаскивание панорамирует холст.</li><li>Обычные слои можно скрывать, менять местами и делать прозрачными.</li><li>При дорисовке действует таймер; после его окончания рисунок блокируется до решения о сохранении.</li></ul>
-            </section>
-            <section class="help-page" data-page="4">
-              <p><strong>Референс-слой</strong></p>
-              <ul>
-                <li>Референс — вспомогательное изображение для ориентира во время рисования: фотография, набросок, палитра или любой другой исходник.</li>
-                <li>Выберите файл в блоке «Референс» и нажмите «Добавить как слой». Он появится в списке слоёв с красной рамкой.</li>
-                <li>Референс можно оставить видимым, скрыть кнопкой глаза, менять его прозрачность и порядок среди остальных слоёв.</li>
-                <li>Красная рамка — напоминание, что это служебный слой. Он виден только в редакторе и полностью пропускается при экспорте PNG.</li>
-                <li>Поэтому референс не станет частью сохранённого кадра серии или аватара. Когда он больше не нужен, выберите его в списке и удалите как обычный слой.</li>
-              </ul>
+              <ul><li>В режиме лупы колесо изменяет масштаб, а перетаскивание панорамирует холст.</li><li>Референс — обычный красно отмеченный слой и не входит в PNG.</li><li>При дорисовке действует таймер; после его окончания рисунок блокируется до решения о сохранении.</li></ul>
             </section>
           </div>
-          <div class="help-pager"><button id="helpPrev" type="button">‹ Назад</button><span id="helpPageLabel">1 / 4</span><button id="helpNext" type="button">Вперёд ›</button></div>
+          <div class="help-pager"><button id="helpPrev" type="button">‹ Назад</button><span id="helpPageLabel">1 / 3</span><button id="helpNext" type="button">Вперёд ›</button></div>
         </div>
         <div class="help-side">
           <img src="KOT1.PNG" alt="Кот в справке" id="helpCatPrimary" class="help-cat">
@@ -429,10 +420,16 @@ const MAX_DRAW_MS = 10 * 60 * 1000;
 
     let unsaved = false;
     function setHeaderForMode() {
-      // The editor no longer has a separate contextual arrow: the brand returns to
-      // the catalogue and the header keeps the same clean geometry in both modes.
-      if (linkSeries) linkSeries.style.display = 'none';
-      if (timerContainer) timerContainer.style.display = mode === 'new' ? 'none' : 'block';
+      if (mode === 'new') {
+        if (linkSeries) linkSeries.style.display = 'none';
+        if (timerContainer) timerContainer.style.display = 'none';
+      } else {
+        if (linkSeries) {
+          linkSeries.style.display = 'inline';
+          if (seriesId) linkSeries.href = 'series.html?id=' + seriesId;
+        }
+        if (timerContainer) timerContainer.style.display = 'block';
+      }
     }
     function confirmLeave(e) {
       if (mode === 'new' && unsaved) {

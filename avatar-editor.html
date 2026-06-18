@@ -3,124 +3,151 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kadry — Редактор аватара</title>
-  <link rel="stylesheet" href="editor-responsive.css" />
+  <title>Kadry — Аватар</title>
+  <style>
+    :root{
+      --bg:#f4f4f5;--text:#0f172a;--muted:#64748b;--card:#fff;--stroke:#e5e7eb;--blue:#2563eb;--danger:#b91c1c;
+      --kadry-canvas-w:600;--kadry-canvas-h:600;--kadry-canvas-ratio:600 / 600;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;overflow:hidden;}
+    .site-header{position:relative;display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:4px 14px 6px;background:#f8fafc;border-bottom:1px solid var(--stroke);min-height:58px;}
+    .hslot{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-weight:600;min-width:0;}
+    .hslot:hover{background:#e5e7eb40;}
+    .brand{display:flex;flex-direction:column;align-items:center;line-height:1;}
+    .brand .above{font-size:30px;font-weight:800;transform:translateY(-18%);}
+    .brand .below{font-size:14px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transform:translateY(18%);}
+    .wrap{height:calc(100% - 69px);display:flex;min-height:0;}
+    .side{width:280px;min-width:280px;border-right:1px solid var(--stroke);background:#fff;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;}
+    .stage{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+    .panel{background:#f8fafc;border:1px solid var(--stroke);border-radius:10px;padding:10px;}
+    .panel-title{font-weight:800;margin-bottom:8px;font-size:14px;}
+    .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .col{display:flex;flex-direction:column;gap:8px;width:100%;}
+    .btn{padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font:inherit;font-weight:700;text-decoration:none;color:inherit;}
+    .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+    .btn:disabled{opacity:.6;cursor:not-allowed;}
+    .muted{font-size:13px;color:var(--muted);line-height:1.35;}
+    .danger{color:var(--danger);}
+    #layerList{max-height:260px;overflow-y:auto;padding-right:4px;}
+    .topbar{display:flex;align-items:center;gap:14px;padding:8px 16px;background:#fff;border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
+    .topbar label{font-size:13px;color:#334155;display:flex;align-items:center;gap:6px;}
+    .slider-value{font-size:12px;color:#64748b;min-width:34px;display:inline-block;text-align:right;}
+    .canvas-holder{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:12px;gap:12px;min-height:0;}
+    #canvasWrap{position:relative;background:#fff;border:1px solid #d1d5db;box-sizing:border-box;width:min(72vh,72vw);max-width:calc(100% - 290px);height:auto;aspect-ratio:var(--kadry-canvas-ratio);flex:0 0 auto;box-shadow:0 1px 3px rgba(15,23,42,.12);}
+    .color-preview{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70px;height:70px;border-radius:999px;border:3px solid rgba(15,23,42,.8);box-shadow:0 4px 16px rgba(15,23,42,.35);background:#000;opacity:0;pointer-events:none;transition:opacity .12s ease-out;z-index:9999;}
+    body.eyedropper-active #canvasWrap{cursor:crosshair;}
+    body.eyedropper-active .color-preview{opacity:0!important;}
+    .color-sidebar{width:250px;max-width:250px;flex:0 0 auto;background:#f9fafb;border:1px solid var(--stroke);border-radius:10px;padding:10px 10px 12px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;}
+    .color-wheel-wrap{position:relative;display:flex;justify-content:center;align-items:center;}
+    #colorWheel{max-width:100%;height:auto;display:block;}
+    .color-sliders{display:flex;flex-direction:column;gap:6px;}
+    .color-slider-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;}
+    .color-slider-row span{width:14px;text-align:right;}
+    .color-slider-row input[type=range]{width:100%;}
+    .color-slider-track{flex:1;display:flex;align-items:center;border-radius:999px;min-height:18px;padding:0 4px;background:#e5e7eb;}
+    .color-history{display:flex;gap:8px;justify-content:center;}
+    .color-history-col{display:flex;gap:6px;}
+    .color-history-swatch{width:20px;height:20px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;cursor:pointer;}
+    .bottombar{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px;background:#fff;border-top:1px solid var(--stroke);}
+    .status{min-height:18px;font-size:13px;color:#475569;}
+    .status.error{color:var(--danger);}
+    @media(max-width:900px){html,body{overflow:auto}.wrap{height:auto;min-height:calc(100vh - 69px);flex-direction:column}.side{width:100%;min-width:0;max-height:none;border-right:0;border-bottom:1px solid var(--stroke)}.canvas-holder{flex-direction:column;overflow:visible}#canvasWrap{width:min(92vw,600px);max-width:92vw}.color-sidebar{width:min(92vw,600px);max-width:92vw}.site-header{grid-template-columns:1fr 1fr}.topbar{align-items:flex-start}}
+  </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
   <script src="draw.js"></script>
 </head>
-<body class="avatar-editor">
+<body>
   <header class="site-header">
-    <a id="avatarEditorBrand" class="brand" href="profile.html" aria-label="Вернуться в профиль" title="Вернуться в профиль">
-      <div class="above">Аватар</div>
-      <div class="below">KADRY</div>
-    </a>
+    <a class="hslot h1" href="profile.html"><div class="brand"><div class="above">Аватар</div><div class="below">Kadry</div></div></a>
     <a class="hslot h2" href="index.html">Каталог</a>
     <a class="hslot h3" href="votes.html">Голосования</a>
-    <button id="saveAvatarBtn" type="button">Сохранить</button>
+    <a class="hslot h4" id="profileLink" href="profile.html">Профиль</a>
   </header>
 
-  <div class="editor-layout">
-    <main class="stage">
-      <div class="canvas-holder">
-        <div class="canvas-fit-area">
-          <div id="canvasWrap" aria-label="Рабочий холст 600×600">
-            <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+  <div class="wrap">
+    <aside class="side">
+      <a id="backProfile" href="profile.html" class="btn">← Вернуться в профиль</a>
+      <div class="panel">
+        <div class="panel-title">Аватар 600×600</div>
+        <div class="muted">Старая аватарка удаляется только после успешной загрузки и сохранения новой. Если выйти без сохранения, текущий аватар не изменится.</div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Инструменты слоя</div>
+        <div class="col">
+          <input id="layerOpacity" name="layerOpacity" type="range" min="0" max="1" step="0.01" value="1" title="Непрозрачность выбранного слоя" style="width:100%" />
+          <div class="row" style="justify-content:space-between;">
+            <button id="addLayerBtn" class="btn" title="Добавить слой">＋</button>
+            <div class="row">
+              <button id="clearBtn" class="btn" title="Очистить слой">×</button>
+              <button id="delLayerBtn" class="btn danger" title="Удалить слой">✖</button>
+            </div>
           </div>
         </div>
-        <div id="canvasStatus" class="sr-only" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Слои</div>
+        <div id="layerList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Референс слой</div>
+        <div class="row">
+          <input type="file" id="refInput" name="refInput" accept="image/*" class="btn" />
+          <button id="addRefBtn" class="btn">Добавить</button>
+        </div>
+        <div class="muted">Референс не попадёт в сохранённую PNG.</div>
+      </div>
+      <div id="saveStatus" class="status"></div>
+    </aside>
+
+    <main class="stage">
+      <div class="topbar">
+        <input id="brushColor" name="brushColor" type="hidden" value="#000000" />
+        <label>Толщина <span id="brushSizeValue" class="slider-value">0%</span><input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8" /></label>
+        <label>Прозрачность <span id="brushAlphaValue" class="slider-value">100%</span><input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1" /></label>
+        <label>Сглаживание <span id="brushSmoothValue" class="slider-value">0%</span><input id="brushSmooth" name="brushSmooth" type="range" min="0" max="100" step="1" value="0" /></label>
+        <label>Инструмент
+          <select id="toolSel" name="toolSel">
+            <option value="brush">Кисть</option>
+            <option value="eraser">Ластик</option>
+            <option value="fill">Заливка</option>
+            <option value="select">Выделение</option>
+            <option value="zoom">Лупа</option>
+            <option value="eyedropper">Пипетка</option>
+          </select>
+        </label>
+        <button id="saveAvatarBtn" class="btn primary" type="button">Сохранить аватар</button>
       </div>
 
-      <div id="saveStatus" class="avatar-save-status" role="status" aria-live="polite"></div>
-
-      <div id="floatingActions" class="floating-actions" aria-label="Быстрые действия">
-        <button id="floatingActionsHandle" class="floating-drag-handle" type="button" title="Переместить панель действий" aria-label="Переместить панель действий"><span aria-hidden="true"></span></button>
-        <button id="confirmSelBtn" type="button" title="Применить выделение" style="display:none">✔</button>
-        <button id="undoBtn" class="action-btn" type="button" title="Отменить">↶</button>
-        <div class="quick-mobile-tools mobile-only" aria-label="Быстрые инструменты">
-          <button class="quick-tool is-active" type="button" data-editor-tool="brush" title="Кисть"><img src="assets/icons/tools/brush.png" alt="Кисть"></button>
-          <button class="quick-tool" type="button" data-editor-tool="eraser" title="Ластик"><img src="assets/icons/tools/eraser.png" alt="Ластик"></button>
-          <button class="quick-tool" type="button" data-editor-tool="fill" title="Заливка"><img src="assets/icons/tools/fill.png" alt="Заливка"></button>
-          <button class="quick-tool" type="button" data-editor-tool="zoom" title="Лупа"><img src="assets/icons/tools/zoom.png" alt="Лупа"></button>
-          <button class="quick-tool" type="button" data-editor-tool="eyedropper" title="Пипетка"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка"></button>
-          <button class="quick-color" type="button" data-editor-panel="color" title="Открыть палитру"><span data-current-color></span></button>
+      <div class="canvas-holder">
+        <div id="canvasWrap" aria-label="Рабочий холст 600×600">
+          <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
         </div>
-        <button id="redoBtn" class="action-btn" type="button" title="Повторить">↷</button>
-        <button id="cancelSelBtn" type="button" title="Отменить выделение" style="display:none">✕</button>
+        <aside class="color-sidebar" aria-label="Палитра цветов">
+          <div class="color-wheel-wrap"><canvas id="colorWheel" width="220" height="220"></canvas></div>
+          <div class="color-sliders">
+            <div class="color-slider-row"><span>H</span><div class="color-slider-track"><input id="hueSlider" type="range" min="0" max="360" value="0" /></div></div>
+            <div class="color-slider-row"><span>S</span><div class="color-slider-track"><input id="satSlider" type="range" min="0" max="100" value="100" /></div></div>
+            <div class="color-slider-row"><span>B</span><div class="color-slider-track"><input id="valSlider" type="range" min="0" max="100" value="100" /></div></div>
+          </div>
+          <div class="color-history" aria-label="История цветов">
+            <div class="color-history-col">
+              <button class="color-history-swatch" data-index="0"></button><button class="color-history-swatch" data-index="1"></button><button class="color-history-swatch" data-index="2"></button><button class="color-history-swatch" data-index="3"></button><button class="color-history-swatch" data-index="4"></button>
+            </div>
+            <div class="color-history-col">
+              <button class="color-history-swatch" data-index="5"></button><button class="color-history-swatch" data-index="6"></button><button class="color-history-swatch" data-index="7"></button><button class="color-history-swatch" data-index="8"></button><button class="color-history-swatch" data-index="9"></button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="bottombar">
+        <button id="confirmSelBtn" class="btn" title="Применить выделение" style="display:none">✔</button>
+        <button id="undoBtn" class="btn" title="Отмена">⟵</button>
+        <button id="redoBtn" class="btn" title="Повтор">⟶</button>
+        <button id="cancelSelBtn" class="btn danger" title="Отменить выделение" style="display:none">✖</button>
       </div>
     </main>
-
-    <section id="editorDrawer" class="editor-drawer" aria-label="Панели редактора">
-      <button id="drawerHandleBtn" class="drawer-handle-btn mobile-only" type="button" title="Свернуть или развернуть панель"></button>
-      <div class="drawer-head"><div id="drawerTitle" class="drawer-title">Инструменты</div><button id="drawerCloseBtn" class="drawer-close" type="button" title="Свернуть панель">×</button></div>
-      <div class="drawer-body">
-        <aside class="control-column left-column">
-          <section class="control-panel tools-panel is-active" data-panel="tools">
-            <h2>Инструменты</h2>
-            <div class="tool-grid" aria-label="Инструменты рисования">
-              <button class="tool-button is-active" type="button" data-editor-tool="brush" title="Кисть"><img src="assets/icons/tools/brush.png" alt="Кисть"></button>
-              <button class="tool-button" type="button" data-editor-tool="zoom" title="Лупа и панорама"><img src="assets/icons/tools/zoom.png" alt="Лупа"></button>
-              <button class="tool-button" type="button" data-editor-tool="eraser" title="Ластик"><img src="assets/icons/tools/eraser.png" alt="Ластик"></button>
-              <button class="tool-button" type="button" data-editor-tool="select" title="Свободное выделение"><img src="assets/icons/tools/lasso.png" alt="Лассо"></button>
-              <button class="tool-button" type="button" data-editor-tool="fill" title="Свободная заливка"><img src="assets/icons/tools/fill.png" alt="Заливка"></button>
-              <button class="tool-button" type="button" data-editor-tool="eyedropper" title="Пипетка"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка"></button>
-            </div>
-          </section>
-
-          <section class="control-panel brush-panel" data-panel="brush">
-            <h2>Кисть</h2>
-            <input id="brushColor" name="brushColor" type="hidden" value="#000000" />
-            <select id="toolSel" name="toolSel" class="sr-only" aria-label="Текущий инструмент">
-              <option value="brush">Кисть</option><option value="eraser">Ластик</option><option value="fill">Заливка</option><option value="select">Выделение</option><option value="zoom">Лупа</option><option value="eyedropper">Пипетка</option>
-            </select>
-            <div class="field-group"><label class="field-label" for="brushSize">Толщина <span id="brushSizeValue" class="field-value">0%</span></label><input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8" /></div>
-            <div class="field-group"><label class="field-label" for="brushAlpha">Прозрачность <span id="brushAlphaValue" class="field-value">100%</span></label><input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1" /></div>
-            <div class="field-group"><label class="field-label" for="brushSmooth">Сглаживание <span id="brushSmoothValue" class="field-value">0%</span></label><input id="brushSmooth" name="brushSmooth" type="range" min="0" max="100" step="1" value="0" /></div>
-          </section>
-
-          <div class="editor-help-anchor" aria-label="Справка по редактору">
-            <div class="editor-help-cat-viewport" aria-hidden="true"><img id="editorHelpCat" src="KOT0-static.png" alt="" /></div>
-            <button id="helpBtn" class="editor-help-btn" type="button" title="Открыть справку"><span class="editor-help-btn-icon" aria-hidden="true">?</span><span>Справка</span></button>
-          </div>
-        </aside>
-
-        <aside class="control-column right-column">
-          <section class="control-panel color-panel" data-panel="color">
-            <h2>Цвет <span data-current-color style="width:23px;height:23px;border:1px solid #b9c7d4;border-radius:7px;background:#000"></span></h2>
-            <div class="color-wheel-wrap"><canvas id="colorWheel" width="220" height="220" aria-label="Круг оттенка и треугольник насыщенности/яркости"></canvas></div>
-            <div class="color-picker-actions" aria-label="Быстрые действия палитры"><button id="eyedropperBtn" type="button" title="Пипетка (P / З)"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка" /></button></div>
-            <div class="color-slider-row"><span>H</span><div class="color-slider-track" data-kind="h"><input id="hueSlider" type="range" min="0" max="360" value="0" aria-label="Оттенок" /></div></div>
-            <div class="color-slider-row"><span>S</span><div class="color-slider-track" data-kind="s"><input id="satSlider" type="range" min="0" max="100" value="100" aria-label="Насыщенность" /></div></div>
-            <div class="color-slider-row"><span>B</span><div class="color-slider-track" data-kind="b"><input id="valSlider" type="range" min="0" max="100" value="100" aria-label="Яркость" /></div></div>
-            <div class="color-history" aria-label="История цветов">
-              <button class="color-history-swatch" data-index="0" type="button"></button><button class="color-history-swatch" data-index="1" type="button"></button><button class="color-history-swatch" data-index="2" type="button"></button><button class="color-history-swatch" data-index="3" type="button"></button><button class="color-history-swatch" data-index="4" type="button"></button><button class="color-history-swatch" data-index="5" type="button"></button><button class="color-history-swatch" data-index="6" type="button"></button><button class="color-history-swatch" data-index="7" type="button"></button><button class="color-history-swatch" data-index="8" type="button"></button><button class="color-history-swatch" data-index="9" type="button"></button>
-            </div>
-          </section>
-
-          <section class="control-panel layers-panel" data-panel="layers">
-            <div class="layers-head"><h2>Слои</h2></div>
-            <div class="layers-actions"><button id="clearBtn" class="panel-action" type="button" title="Очистить активный слой">×</button><button id="delLayerBtn" class="panel-action danger" type="button" title="Удалить активный слой">✕</button><button id="addLayerBtn" class="panel-action add" type="button" title="Добавить слой">＋</button></div>
-            <label class="field-label" for="layerOpacity">Прозрачность слоя</label><input id="layerOpacity" name="layerOpacity" type="range" min="0" max="1" step="0.01" value="1" title="Непрозрачность выбранного слоя" />
-            <div id="layerList" aria-label="Список слоёв"></div>
-            <p class="panel-note">Красная рамка означает скрытый слой или референс: он не войдёт в PNG.</p>
-          </section>
-
-          <section class="control-panel reference-panel" data-panel="reference">
-            <h2><span class="reference-term" tabindex="0" role="note" aria-label="Референс: вспомогательный слой, который виден только в редакторе и не попадает в экспорт.">Референс<span class="reference-tooltip" role="tooltip">Вспомогательный слой: виден только в редакторе и не попадёт в экспорт.</span></span></h2><div class="reference-file"><input type="file" id="refInput" name="refInput" accept="image/*" /><button id="addRefBtn" type="button">Добавить как слой</button></div><p class="panel-note">Референс остаётся в списке слоёв, виден только в редакторе и не экспортируется.</p>
-          </section>
-        </aside>
-      </div>
-    </section>
-
-    <nav class="mobile-bottom-nav" aria-label="Разделы редактора"><button class="mobile-nav-btn is-active" type="button" data-editor-panel="tools">Инстр.</button><button class="mobile-nav-btn" type="button" data-editor-panel="brush">Кисть</button><button class="mobile-nav-btn" type="button" data-editor-panel="color">Цвет</button><button class="mobile-nav-btn" type="button" data-editor-panel="layers">Слои</button><button class="mobile-nav-btn" type="button" data-editor-panel="reference" title="Референс: вспомогательный слой, который не войдёт в экспорт." aria-label="Референс: вспомогательный слой, который не войдёт в экспорт.">Реф.</button></nav>
-  </div>
-
-  <div id="helpOverlay" class="overlay" aria-hidden="true">
-    <div class="card help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-      <button class="x" id="helpClose" type="button" title="Закрыть справку">✕</button>
-      <h3 id="helpTitle">Справка редактора аватара</h3>
-      <div class="help-content"><div><p><strong>Работа с рисунком</strong></p><ul><li>Кисть, ластик, заливка, лассо, лупа и пипетка работают так же, как в редакторе серии.</li><li>Слои можно скрывать, удалять, делать прозрачными и менять местами перетаскиванием.</li><li><strong>Референс-слой</strong> — это вспомогательная картинка для ориентира. Выберите файл в блоке «Референс» и нажмите «Добавить как слой»: он появится в списке с красной рамкой.</li><li>Референс можно скрывать, делать прозрачнее и располагать выше или ниже обычных слоёв. Красная рамка напоминает, что этот слой служебный.</li><li>Референс виден только во время рисования. При экспорте PNG он полностью пропускается и не станет частью сохранённого аватара.</li><li>Аватар сохраняется квадратом 600×600; старый файл удаляется только после успешного сохранения нового.</li></ul></div></div>
-    </div>
   </div>
 
 <script>
@@ -257,44 +284,12 @@
     }
   }
 
-  function fitAvatarCanvasWrap(){
-    const holder = document.querySelector('.canvas-fit-area') || document.querySelector('.canvas-holder');
-    const wrap = el('canvasWrap');
-    if(!holder || !wrap) return;
-    const r = holder.getBoundingClientRect();
-    const side = Math.max(0, Math.min(r.width, r.height));
-    wrap.style.width = side + 'px';
-    wrap.style.height = side + 'px';
-  }
-
-  function initAvatarHelp(){
-    const open = el('helpBtn');
-    const overlay = el('helpOverlay');
-    const close = el('helpClose');
-    if(!open || !overlay) return;
-    function setOpen(value){
-      overlay.classList.toggle('show', value);
-      overlay.setAttribute('aria-hidden', value ? 'false' : 'true');
-    }
-    open.addEventListener('click', function(){ setOpen(true); });
-    if(close) close.addEventListener('click', function(){ setOpen(false); });
-    overlay.addEventListener('click', function(event){ if(event.target === overlay) setOpen(false); });
-    document.addEventListener('keydown', function(event){ if(event.key === 'Escape') setOpen(false); });
-  }
-
   async function init(){
     const user = await requireUser();
     if(!user) return;
-    const returnTarget = safeReturnUrl();
-    const brand = el('avatarEditorBrand');
-    if(brand) brand.href = returnTarget;
-
+    el('backProfile').href = safeReturnUrl();
+    el('profileLink').href = safeReturnUrl();
     window.initDrawEditor({ canvasPreset:'avatar', allowCustomCanvas:true, canvasWidth:600, canvasHeight:600 });
-    fitAvatarCanvasWrap();
-    requestAnimationFrame(fitAvatarCanvasWrap);
-    window.addEventListener('resize', fitAvatarCanvasWrap);
-    window.addEventListener('orientationchange', fitAvatarCanvasWrap);
-
     el('canvasWrap').addEventListener('pointerdown', markUnsaved, true);
     document.querySelectorAll('input,select,button').forEach(function(node){
       if(node.id === 'saveAvatarBtn') return;
@@ -302,13 +297,11 @@
       node.addEventListener('change', markUnsaved, true);
     });
     el('saveAvatarBtn').addEventListener('click', saveAvatar);
-    initAvatarHelp();
     setStatus('', false);
   }
 
   init();
 })();
 </script>
-<script src="editor-ui.js"></script>
 </body>
 </html>
