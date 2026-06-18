@@ -3,154 +3,206 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kadry — Аватар</title>
-  <style>
-    :root{
-      --bg:#f4f4f5;--text:#0f172a;--muted:#64748b;--card:#fff;--stroke:#e5e7eb;--blue:#2563eb;--danger:#b91c1c;
-      --kadry-canvas-w:600;--kadry-canvas-h:600;--kadry-canvas-ratio:600 / 600;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;overflow:hidden;}
-    .site-header{position:relative;display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:4px 14px 6px;background:#f8fafc;border-bottom:1px solid var(--stroke);min-height:58px;}
-    .hslot{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-weight:600;min-width:0;}
-    .hslot:hover{background:#e5e7eb40;}
-    .brand{display:flex;flex-direction:column;align-items:center;line-height:1;}
-    .brand .above{font-size:30px;font-weight:800;transform:translateY(-18%);}
-    .brand .below{font-size:14px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transform:translateY(18%);}
-    .wrap{height:calc(100% - 69px);display:flex;min-height:0;}
-    .side{width:280px;min-width:280px;border-right:1px solid var(--stroke);background:#fff;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;}
-    .stage{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
-    .panel{background:#f8fafc;border:1px solid var(--stroke);border-radius:10px;padding:10px;}
-    .panel-title{font-weight:800;margin-bottom:8px;font-size:14px;}
-    .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-    .col{display:flex;flex-direction:column;gap:8px;width:100%;}
-    .btn{padding:7px 11px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font:inherit;font-weight:700;text-decoration:none;color:inherit;}
-    .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
-    .btn:disabled{opacity:.6;cursor:not-allowed;}
-    .muted{font-size:13px;color:var(--muted);line-height:1.35;}
-    .danger{color:var(--danger);}
-    #layerList{max-height:260px;overflow-y:auto;padding-right:4px;}
-    .topbar{display:flex;align-items:center;gap:14px;padding:8px 16px;background:#fff;border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
-    .topbar label{font-size:13px;color:#334155;display:flex;align-items:center;gap:6px;}
-    .slider-value{font-size:12px;color:#64748b;min-width:34px;display:inline-block;text-align:right;}
-    .canvas-holder{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:12px;gap:12px;min-height:0;}
-    #canvasWrap{position:relative;background:#fff;border:1px solid #d1d5db;box-sizing:border-box;width:min(72vh,72vw);max-width:calc(100% - 290px);height:auto;aspect-ratio:var(--kadry-canvas-ratio);flex:0 0 auto;box-shadow:0 1px 3px rgba(15,23,42,.12);}
-    .color-preview{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70px;height:70px;border-radius:999px;border:3px solid rgba(15,23,42,.8);box-shadow:0 4px 16px rgba(15,23,42,.35);background:#000;opacity:0;pointer-events:none;transition:opacity .12s ease-out;z-index:9999;}
-    body.eyedropper-active #canvasWrap{cursor:crosshair;}
-    body.eyedropper-active .color-preview{opacity:0!important;}
-    .color-sidebar{width:250px;max-width:250px;flex:0 0 auto;background:#f9fafb;border:1px solid var(--stroke);border-radius:10px;padding:10px 10px 12px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;}
-    .color-wheel-wrap{position:relative;display:flex;justify-content:center;align-items:center;}
-    #colorWheel{max-width:100%;height:auto;display:block;}
-    .color-sliders{display:flex;flex-direction:column;gap:6px;}
-    .color-slider-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;}
-    .color-slider-row span{width:14px;text-align:right;}
-    .color-slider-row input[type=range]{width:100%;}
-    .color-slider-track{flex:1;display:flex;align-items:center;border-radius:999px;min-height:18px;padding:0 4px;background:#e5e7eb;}
-    .color-history{display:flex;gap:8px;justify-content:center;}
-    .color-history-col{display:flex;gap:6px;}
-    .color-history-swatch{width:20px;height:20px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;cursor:pointer;}
-    .bottombar{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px;background:#fff;border-top:1px solid var(--stroke);}
-    .status{min-height:18px;font-size:13px;color:#475569;}
-    .status.error{color:var(--danger);}
-    @media(max-width:900px){html,body{overflow:auto}.wrap{height:auto;min-height:calc(100vh - 69px);flex-direction:column}.side{width:100%;min-width:0;max-height:none;border-right:0;border-bottom:1px solid var(--stroke)}.canvas-holder{flex-direction:column;overflow:visible}#canvasWrap{width:min(92vw,600px);max-width:92vw}.color-sidebar{width:min(92vw,600px);max-width:92vw}.site-header{grid-template-columns:1fr 1fr}.topbar{align-items:flex-start}}
-  </style>
+  <title>Kadry — Редактор аватара</title>
+  <link rel="stylesheet" href="editor-responsive.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
   <script src="draw.js"></script>
 </head>
 <body>
   <header class="site-header">
-    <a class="hslot h1" href="profile.html"><div class="brand"><div class="above">Аватар</div><div class="below">Kadry</div></div></a>
+    <a id="editorBrand" class="brand" href="index.html" aria-label="Вернуться в каталог Kadry" title="Вернуться в каталог">
+      <div class="above">Редактор</div>
+      <div class="below">KADRY</div>
+    </a>
     <a class="hslot h2" href="index.html">Каталог</a>
     <a class="hslot h3" href="votes.html">Голосования</a>
-    <a class="hslot h4" id="profileLink" href="profile.html">Профиль</a>
+    <span id="adminBadge" class="admin-chip" aria-hidden="true">ADMIN</span>
+    <button id="admin10sBtn" type="button" tabindex="-1" aria-hidden="true">⏱ 10s</button>
+    <button id="saveDrawBtn" type="button">Сохранить</button>
   </header>
 
-  <div class="wrap">
-    <aside class="side">
-      <a id="backProfile" href="profile.html" class="btn">← Вернуться в профиль</a>
-      <div class="panel">
-        <div class="panel-title">Аватар 600×600</div>
-        <div class="muted">Старая аватарка удаляется только после успешной загрузки и сохранения новой. Если выйти без сохранения, текущий аватар не изменится.</div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Инструменты слоя</div>
-        <div class="col">
-          <input id="layerOpacity" name="layerOpacity" type="range" min="0" max="1" step="0.01" value="1" title="Непрозрачность выбранного слоя" style="width:100%" />
-          <div class="row" style="justify-content:space-between;">
-            <button id="addLayerBtn" class="btn" title="Добавить слой">＋</button>
-            <div class="row">
-              <button id="clearBtn" class="btn" title="Очистить слой">×</button>
-              <button id="delLayerBtn" class="btn danger" title="Удалить слой">✖</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Слои</div>
-        <div id="layerList"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Референс слой</div>
-        <div class="row">
-          <input type="file" id="refInput" name="refInput" accept="image/*" class="btn" />
-          <button id="addRefBtn" class="btn">Добавить</button>
-        </div>
-        <div class="muted">Референс не попадёт в сохранённую PNG.</div>
-      </div>
-      <div id="saveStatus" class="status"></div>
-    </aside>
-
+  <div class="editor-layout">
     <main class="stage">
-      <div class="topbar">
-        <input id="brushColor" name="brushColor" type="hidden" value="#000000" />
-        <label>Толщина <span id="brushSizeValue" class="slider-value">0%</span><input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8" /></label>
-        <label>Прозрачность <span id="brushAlphaValue" class="slider-value">100%</span><input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1" /></label>
-        <label>Сглаживание <span id="brushSmoothValue" class="slider-value">0%</span><input id="brushSmooth" name="brushSmooth" type="range" min="0" max="100" step="1" value="0" /></label>
-        <label>Инструмент
-          <select id="toolSel" name="toolSel">
-            <option value="brush">Кисть</option>
-            <option value="eraser">Ластик</option>
-            <option value="fill">Заливка</option>
-            <option value="select">Выделение</option>
-            <option value="zoom">Лупа</option>
-            <option value="eyedropper">Пипетка</option>
-          </select>
-        </label>
-        <button id="saveAvatarBtn" class="btn primary" type="button">Сохранить аватар</button>
-      </div>
-
       <div class="canvas-holder">
-        <div id="canvasWrap" aria-label="Рабочий холст 600×600">
-          <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+        <div class="canvas-fit-area">
+          <div id="canvasWrap" aria-label="Рабочий холст (внутри 1920×1080)">
+            <div id="colorPreview" class="color-preview" aria-hidden="true"></div>
+          </div>
         </div>
-        <aside class="color-sidebar" aria-label="Палитра цветов">
-          <div class="color-wheel-wrap"><canvas id="colorWheel" width="220" height="220"></canvas></div>
-          <div class="color-sliders">
-            <div class="color-slider-row"><span>H</span><div class="color-slider-track"><input id="hueSlider" type="range" min="0" max="360" value="0" /></div></div>
-            <div class="color-slider-row"><span>S</span><div class="color-slider-track"><input id="satSlider" type="range" min="0" max="100" value="100" /></div></div>
-            <div class="color-slider-row"><span>B</span><div class="color-slider-track"><input id="valSlider" type="range" min="0" max="100" value="100" /></div></div>
-          </div>
-          <div class="color-history" aria-label="История цветов">
-            <div class="color-history-col">
-              <button class="color-history-swatch" data-index="0"></button><button class="color-history-swatch" data-index="1"></button><button class="color-history-swatch" data-index="2"></button><button class="color-history-swatch" data-index="3"></button><button class="color-history-swatch" data-index="4"></button>
-            </div>
-            <div class="color-history-col">
-              <button class="color-history-swatch" data-index="5"></button><button class="color-history-swatch" data-index="6"></button><button class="color-history-swatch" data-index="7"></button><button class="color-history-swatch" data-index="8"></button><button class="color-history-swatch" data-index="9"></button>
-            </div>
-          </div>
-        </aside>
+        <div id="canvasStatus" class="sr-only" aria-live="polite"></div>
       </div>
 
-      <div class="bottombar">
-        <button id="confirmSelBtn" class="btn" title="Применить выделение" style="display:none">✔</button>
-        <button id="undoBtn" class="btn" title="Отмена">⟵</button>
-        <button id="redoBtn" class="btn" title="Повтор">⟶</button>
-        <button id="cancelSelBtn" class="btn danger" title="Отменить выделение" style="display:none">✖</button>
+      <div id="floatingActions" class="floating-actions" aria-label="Быстрые действия">
+        <button id="floatingActionsHandle" class="floating-drag-handle" type="button" title="Переместить панель действий" aria-label="Переместить панель действий">
+          <span aria-hidden="true"></span>
+        </button>
+        <button id="confirmSelBtn" type="button" title="Применить выделение" style="display:none">✔</button>
+        <button id="undoBtn" class="action-btn" type="button" title="Отменить">↶</button>
+
+        <div class="quick-mobile-tools mobile-only" aria-label="Быстрые инструменты">
+          <button class="quick-tool" type="button" data-editor-tool="brush" title="Кисть"><img src="assets/icons/tools/brush.png" alt="Кисть"></button>
+          <button class="quick-tool" type="button" data-editor-tool="eraser" title="Ластик"><img src="assets/icons/tools/eraser.png" alt="Ластик"></button>
+          <button class="quick-tool" type="button" data-editor-tool="fill" title="Заливка"><img src="assets/icons/tools/fill.png" alt="Заливка"></button>
+          <button class="quick-tool" type="button" data-editor-tool="zoom" title="Лупа"><img src="assets/icons/tools/zoom.png" alt="Лупа"></button>
+          <button class="quick-tool" type="button" data-editor-tool="eyedropper" title="Пипетка"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка"></button>
+          <button class="quick-color" type="button" data-editor-panel="color" title="Открыть палитру"><span data-current-color></span></button>
+        </div>
+
+        <button id="redoBtn" class="action-btn" type="button" title="Повторить">↷</button>
+        <button id="cancelSelBtn" type="button" title="Отменить выделение" style="display:none">✕</button>
       </div>
     </main>
+
+    <section id="editorDrawer" class="editor-drawer" aria-label="Панели редактора">
+      <button id="drawerHandleBtn" class="drawer-handle-btn mobile-only" type="button" title="Свернуть или развернуть панель"></button>
+      <div class="drawer-head">
+        <div id="drawerTitle" class="drawer-title">Инструменты</div>
+        <button id="drawerCloseBtn" class="drawer-close" type="button" title="Свернуть панель">×</button>
+      </div>
+      <div class="drawer-body">
+        <aside class="control-column left-column">
+          <section class="control-panel tools-panel is-active" data-panel="tools">
+            <h2>Инструменты</h2>
+            <div class="tool-grid" aria-label="Инструменты рисования">
+              <button class="tool-button" type="button" data-editor-tool="brush" title="Кисть"><img src="assets/icons/tools/brush.png" alt="Кисть"></button>
+              <button class="tool-button" type="button" data-editor-tool="zoom" title="Лупа и панорама"><img src="assets/icons/tools/zoom.png" alt="Лупа"></button>
+              <button class="tool-button" type="button" data-editor-tool="eraser" title="Ластик"><img src="assets/icons/tools/eraser.png" alt="Ластик"></button>
+              <button class="tool-button" type="button" data-editor-tool="select" title="Свободное выделение"><img src="assets/icons/tools/lasso.png" alt="Лассо"></button>
+              <button class="tool-button" type="button" data-editor-tool="fill" title="Свободная заливка"><img src="assets/icons/tools/fill.png" alt="Заливка"></button>
+              <button class="tool-button" type="button" data-editor-tool="eyedropper" title="Пипетка"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка"></button>
+            </div>
+          </section>
+
+          <section class="control-panel brush-panel" data-panel="brush">
+            <h2>Кисть</h2>
+            <input id="brushColor" name="brushColor" type="hidden" value="#000000">
+            <select id="toolSel" name="toolSel" class="sr-only" aria-label="Текущий инструмент">
+              <option value="brush">Кисть</option>
+              <option value="eraser">Ластик</option>
+              <option value="fill">Заливка</option>
+              <option value="select">Выделение</option>
+              <option value="zoom">Лупа</option>
+              <option value="eyedropper">Пипетка</option>
+            </select>
+
+            <div class="field-group">
+              <label class="field-label" for="brushSize">Толщина <span id="brushSizeValue" class="field-value">0%</span></label>
+              <input id="brushSize" name="brushSize" type="range" min="1" max="60" value="8">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="brushAlpha">Прозрачность <span id="brushAlphaValue" class="field-value">100%</span></label>
+              <input id="brushAlpha" name="brushAlpha" type="range" min="0" max="1" step="0.01" value="1">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="brushSmooth">Сглаживание <span id="brushSmoothValue" class="field-value">0%</span></label>
+              <input id="brushSmooth" name="brushSmooth" type="range" min="0" max="100" step="1" value="0">
+            </div>
+          </section>
+
+          <div class="editor-help-anchor" aria-label="Справка по редактору">
+            <div class="editor-help-cat-viewport" aria-hidden="true">
+              <img id="editorHelpCat" src="KOT0-static.png" alt="">
+            </div>
+            <button id="helpBtn" class="editor-help-btn" type="button" title="Открыть справку">
+              <span class="editor-help-btn-icon" aria-hidden="true">?</span>
+              <span>Справка</span>
+            </button>
+          </div>
+        </aside>
+
+        <aside class="control-column right-column">
+          <section class="control-panel color-panel" data-panel="color">
+            <h2>Цвет <span data-current-color style="width:23px;height:23px;border:1px solid #b9c7d4;border-radius:7px;background:#000"></span></h2>
+            <div class="color-wheel-wrap">
+              <canvas id="colorWheel" width="220" height="220" aria-label="Круг оттенка и треугольник насыщенности/яркости"></canvas>
+            </div>
+            <div class="color-picker-actions" aria-label="Быстрые действия палитры">
+              <button id="eyedropperBtn" type="button" title="Пипетка (P / З)"><img src="assets/icons/tools/eyedropper.png" alt="Пипетка"></button>
+            </div>
+            <div class="color-slider-row"><span>H</span><div class="color-slider-track" data-kind="h"><input id="hueSlider" type="range" min="0" max="360" value="0" aria-label="Оттенок"></div></div>
+            <div class="color-slider-row"><span>S</span><div class="color-slider-track" data-kind="s"><input id="satSlider" type="range" min="0" max="100" value="100" aria-label="Насыщенность"></div></div>
+            <div class="color-slider-row"><span>B</span><div class="color-slider-track" data-kind="b"><input id="valSlider" type="range" min="0" max="100" value="100" aria-label="Яркость"></div></div>
+            <div class="color-history" aria-label="История цветов">
+              <button class="color-history-swatch" data-index="0" type="button"></button>
+              <button class="color-history-swatch" data-index="1" type="button"></button>
+              <button class="color-history-swatch" data-index="2" type="button"></button>
+              <button class="color-history-swatch" data-index="3" type="button"></button>
+              <button class="color-history-swatch" data-index="4" type="button"></button>
+              <button class="color-history-swatch" data-index="5" type="button"></button>
+              <button class="color-history-swatch" data-index="6" type="button"></button>
+              <button class="color-history-swatch" data-index="7" type="button"></button>
+              <button class="color-history-swatch" data-index="8" type="button"></button>
+              <button class="color-history-swatch" data-index="9" type="button"></button>
+            </div>
+          </section>
+
+          <section class="control-panel layers-panel" data-panel="layers">
+            <div class="layers-head"><h2>Слои</h2></div>
+            <div class="layers-actions">
+              <button id="clearBtn" class="panel-action" type="button" title="Очистить активный слой">×</button>
+              <button id="delLayerBtn" class="panel-action danger" type="button" title="Удалить активный слой">✕</button>
+              <button id="addLayerBtn" class="panel-action add" type="button" title="Добавить слой">＋</button>
+            </div>
+            <label class="field-label" for="layerOpacity">Прозрачность слоя</label>
+            <input id="layerOpacity" name="layerOpacity" type="range" min="0" max="1" step="0.01" value="1" title="Непрозрачность выбранного слоя">
+            <div id="layerList" aria-label="Список слоёв"></div>
+            <p class="panel-note">Красная рамка означает скрытый слой или референс: он не войдёт в PNG.</p>
+          </section>
+
+          <section class="control-panel reference-panel" data-panel="reference">
+            <h2>Референс</h2>
+            <div class="reference-file">
+              <input type="file" id="refInput" name="refInput" accept="image/*">
+              <button id="addRefBtn" type="button">Добавить как слой</button>
+            </div>
+            <p class="panel-note">Референс остаётся в списке слоёв, виден только в редакторе и не экспортируется.</p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <nav class="mobile-bottom-nav" aria-label="Разделы редактора">
+      <button class="mobile-nav-btn is-active" type="button" data-editor-panel="tools">Инстр.</button>
+      <button class="mobile-nav-btn" type="button" data-editor-panel="brush">Кисть</button>
+      <button class="mobile-nav-btn" type="button" data-editor-panel="color">Цвет</button>
+      <button class="mobile-nav-btn" type="button" data-editor-panel="layers">Слои</button>
+      <button class="mobile-nav-btn" type="button" data-editor-panel="reference">Реф.</button>
+    </nav>
   </div>
 
-<script>
+
+  <div id="helpOverlay" class="overlay" aria-hidden="true">
+    <div class="card help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="x" id="helpClose" type="button" title="Закрыть справку">✕</button>
+      <h3 id="helpTitle">Справка</h3>
+      <div class="help-content">
+        <div>
+          <div class="help-scroll">
+            <section class="help-page" data-page="1">
+              <p><strong>Инструменты и кисть</strong></p>
+              <ul><li>B / И — кисть.</li><li>E / У — ластик.</li><li>Пипетка берёт цвет с видимой композиции.</li><li>Заливка заполняет свободно обведённую область, а не соседние пиксели.</li><li>Толщина, прозрачность и сглаживание работают для кисти.</li></ul>
+            </section>
+            <section class="help-page" data-page="2">
+              <p><strong>Лассо и история</strong></p>
+              <ul><li>Лассо обводит область, после чего её можно переместить или растянуть.</li><li>Кнопки ✔ и ✕ в нижней панели применяют или отменяют выделение.</li><li>Z / Я — назад, A / Ф — вперёд.</li><li>C / С и V / М — внутренний буфер выделения.</li></ul>
+            </section>
+            <section class="help-page" data-page="3">
+              <p><strong>Лупа, слои и аватар</strong></p>
+              <ul><li>В режиме лупы колесо изменяет масштаб, а перетаскивание панорамирует холст.</li><li>Референс — обычный красно отмеченный слой и не входит в PNG.</li><li>Аватар экспортируется строго квадратом 600×600 пикселей.</li></ul>
+            </section>
+          </div>
+          <div class="help-pager"><button id="helpPrev" type="button">‹ Назад</button><span id="helpPageLabel">1 / 3</span><button id="helpNext" type="button">Вперёд ›</button></div>
+        </div>
+        <div class="help-side">
+          <img src="KOT1.PNG" alt="Кот в справке" id="helpCatPrimary" class="help-cat">
+          <img src="KOT2.PNG" alt="Кот в справке" id="helpCatSecondary" class="help-cat-secondary">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
 (function(){
   'use strict';
 
@@ -165,9 +217,14 @@
   let saving = false;
   let unsaved = false;
   let currentUser = null;
+  let eyedropperActive = false;
 
   function el(id){ return document.getElementById(id); }
-  function setStatus(text, isError){ const box = el('saveStatus'); if(box){ box.textContent = text || ''; box.classList.toggle('error', !!isError); } }
+  function setStatus(text, isError){
+    const box = el('canvasStatus');
+    if (box) box.textContent = text || '';
+    if (isError && text) console.error('[avatar-editor]', text);
+  }
   function safeReturnUrl(){
     try{
       const u = new URL(returnUrl, location.href);
@@ -199,12 +256,146 @@
     return currentUser;
   }
 
+  function setSaving(state){
+    saving = !!state;
+    const btn = el('saveDrawBtn');
+    if(!btn) return;
+    btn.disabled = saving;
+    btn.style.opacity = saving ? '0.6' : '';
+    btn.textContent = saving ? 'Сохранение…' : 'Сохранить';
+  }
   function markUnsaved(){ unsaved = true; }
   window.addEventListener('beforeunload', function(e){
     if(!unsaved || saving) return;
     e.preventDefault();
     e.returnValue = '';
   });
+
+  function fitCanvasWrap(){
+    const holder = document.querySelector('.canvas-fit-area') || document.querySelector('.canvas-holder');
+    const wrap = el('canvasWrap');
+    if(!holder || !wrap) return;
+    const r = holder.getBoundingClientRect();
+    if(r.width < 4 || r.height < 4) return;
+    const side = Math.max(1, Math.floor(Math.min(r.width, r.height)));
+    wrap.style.width = side + 'px';
+    wrap.style.height = side + 'px';
+  }
+
+  function initHelp(){
+    const overlay = el('helpOverlay');
+    const openBtn = el('helpBtn');
+    const closeBtn = el('helpClose');
+    if(!overlay || !openBtn || !closeBtn) return;
+    const pages = Array.from(overlay.querySelectorAll('.help-page'));
+    const prev = el('helpPrev');
+    const next = el('helpNext');
+    const label = el('helpPageLabel');
+    const scroll = overlay.querySelector('.help-scroll');
+    let page = 0;
+    function render(index){
+      page = Math.max(0, Math.min(pages.length - 1, index));
+      pages.forEach((node, i) => node.classList.toggle('active', i === page));
+      if(label) label.textContent = (page + 1) + ' / ' + pages.length;
+      if(prev) prev.disabled = page === 0;
+      if(next) next.disabled = page === pages.length - 1;
+      if(scroll) scroll.scrollTop = 0;
+      const cat1 = el('helpCatPrimary');
+      const cat2 = el('helpCatSecondary');
+      if(cat1 && cat2){
+        cat1.style.display = page === 0 ? 'block' : 'none';
+        cat2.style.display = page === pages.length - 1 ? 'block' : 'none';
+      }
+    }
+    function show(){
+      render(0);
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+    }
+    function hide(){
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    }
+    openBtn.addEventListener('click', show);
+    closeBtn.addEventListener('click', hide);
+    overlay.addEventListener('click', function(e){ if(e.target === overlay) hide(); });
+    if(prev) prev.addEventListener('click', function(){ render(page - 1); });
+    if(next) next.addEventListener('click', function(){ render(page + 1); });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && overlay.classList.contains('show')) hide(); });
+    render(0);
+  }
+
+  function addPickedColorToHistory(hex){
+    const normalized = String(hex || '').toLowerCase();
+    if(!/^#[0-9a-f]{6}$/.test(normalized)) return;
+    const swatches = Array.from(document.querySelectorAll('.color-history-swatch'));
+    const old = swatches.map(function(btn){ return String(btn.dataset.color || '').toLowerCase(); }).filter(Boolean);
+    const ordered = [normalized].concat(old.filter(function(c){ return c !== normalized; })).slice(0, swatches.length);
+    ordered.forEach(function(color, i){
+      const btn = swatches[i];
+      if(!btn) return;
+      btn.dataset.color = color;
+      btn.style.background = color;
+    });
+  }
+  function pickColorAt(clientX, clientY){
+    const wrap = el('canvasWrap');
+    if(!wrap) return null;
+    const canvases = Array.from(wrap.querySelectorAll('canvas'));
+    const layer = canvases.find(function(node){
+      const z = Number(node.style.zIndex || 0);
+      return z > 0 && z < 10;
+    }) || canvases[0];
+    if(!layer) return null;
+    const rect = layer.getBoundingClientRect();
+    const x = Math.floor((clientX - rect.left) * layer.width / rect.width);
+    const y = Math.floor((clientY - rect.top) * layer.height / rect.height);
+    if(x < 0 || y < 0 || x >= layer.width || y >= layer.height) return null;
+    try{
+      const data = layer.getContext('2d').getImageData(x, y, 1, 1).data;
+      if(!data[3]) return null;
+      return '#' + [data[0], data[1], data[2]].map(function(v){ return v.toString(16).padStart(2, '0'); }).join('');
+    }catch(_){ return null; }
+  }
+  function setEyedropper(on){
+    eyedropperActive = !!on;
+    window.__kadryEyedropperOn = eyedropperActive;
+    document.body.classList.toggle('eyedropper-active', eyedropperActive);
+    const preview = el('colorPreview');
+    if(preview) preview.style.opacity = '0';
+    if(window.drawAPI && typeof window.drawAPI.setBrushCursorVisible === 'function'){
+      window.drawAPI.setBrushCursorVisible(!eyedropperActive);
+    }
+    const toolSel = el('toolSel');
+    if(toolSel && eyedropperActive) toolSel.value = 'eyedropper';
+  }
+  function initEyedropper(){
+    const toolSel = el('toolSel');
+    const button = el('eyedropperBtn');
+    const wrap = el('canvasWrap');
+    if(button) button.addEventListener('click', function(){
+      if(!toolSel) return;
+      toolSel.value = eyedropperActive ? 'brush' : 'eyedropper';
+      toolSel.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    if(toolSel) toolSel.addEventListener('change', function(){ setEyedropper(toolSel.value === 'eyedropper'); });
+    if(wrap) wrap.addEventListener('pointerdown', function(e){
+      if(!eyedropperActive) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const color = pickColorAt(e.clientX, e.clientY);
+      if(!color) return;
+      const colorInput = el('brushColor');
+      if(colorInput){
+        colorInput.value = color;
+        colorInput.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+      addPickedColorToHistory(color);
+      markUnsaved();
+    }, true);
+  }
 
   async function saveAvatar(){
     if(saving) return;
@@ -214,48 +405,29 @@
       alert('Редактор ещё не готов.');
       return;
     }
-    const btn = el('saveAvatarBtn');
-    saving = true;
-    if(btn){ btn.disabled = true; btn.textContent = 'Сохраняем…'; }
+    setSaving(true);
     setStatus('Готовим PNG…', false);
-
     let newObjectName = '';
     try{
-      const oldRes = await sb
-        .from('profiles')
-        .select('id,avatar_url,avatar_object_name')
-        .eq('id', user.id)
-        .single();
+      const oldRes = await sb.from('profiles').select('id,avatar_url,avatar_object_name').eq('id', user.id).single();
       if(oldRes.error) throw new Error(oldRes.error.message || 'Не удалось прочитать профиль. Проверьте SQL-патч avatar_object_name.');
       const oldObjectName = oldRes.data && (oldRes.data.avatar_object_name || parseAvatarObjectName(oldRes.data.avatar_url));
-
       const blob = await window.drawAPI.exportCompositeBlob();
       if(!blob || !blob.size) throw new Error('Пустой экспорт аватарки.');
-
       const file = new File([blob], 'avatar.png', { type:'image/png' });
       newObjectName = user.id + '/' + Date.now() + '_' + randomPart() + '.png';
       setStatus('Загружаем аватар…', false);
-      const upload = await sb.storage
-        .from('Avatars')
-        .upload(newObjectName, file, { contentType:'image/png', cacheControl:'3600', upsert:false });
+      const upload = await sb.storage.from('Avatars').upload(newObjectName, file, { contentType:'image/png', cacheControl:'3600', upsert:false });
       if(upload.error) throw new Error(upload.error.message || 'Не удалось загрузить файл в Avatars.');
-
       const pub = sb.storage.from('Avatars').getPublicUrl(newObjectName);
       const publicUrl = pub && pub.data && (pub.data.publicUrl || pub.data.publicURL);
       if(!publicUrl) throw new Error('Не удалось получить публичную ссылку аватара.');
-
       setStatus('Обновляем профиль…', false);
-      const upd = await sb
-        .from('profiles')
-        .update({ avatar_url: publicUrl, avatar_object_name: newObjectName })
-        .eq('id', user.id)
-        .select('id,username,display_name,avatar_url,avatar_object_name')
-        .single();
+      const upd = await sb.from('profiles').update({ avatar_url: publicUrl, avatar_object_name: newObjectName }).eq('id', user.id).select('id,username,display_name,avatar_url,avatar_object_name').single();
       if(upd.error){
         await sb.storage.from('Avatars').remove([newObjectName]).catch(function(){});
         throw new Error(upd.error.message || 'Не удалось обновить профиль.');
       }
-
       if(oldObjectName && oldObjectName !== newObjectName){
         setStatus('Удаляем старую аватарку…', false);
         let remove = await sb.storage.from('Avatars').remove([oldObjectName]);
@@ -263,45 +435,54 @@
           await new Promise(function(resolve){ setTimeout(resolve, 700); });
           remove = await sb.storage.from('Avatars').remove([oldObjectName]);
         }
-        if(remove.error){
-          throw new Error('Новый аватар сохранён, но старый файл не удалился: ' + (remove.error.message || 'storage remove failed'));
-        }
+        if(remove.error) throw new Error('Новый аватар сохранён, но старый файл не удалился: ' + (remove.error.message || 'storage remove failed'));
       }
-
       unsaved = false;
       setStatus('Аватар сохранён.', false);
       try{ window.dispatchEvent(new CustomEvent('kadry:auth-changed')); }catch(_){}
       location.replace(safeReturnUrl());
     }catch(e){
       console.error('[avatar-editor] save failed', e);
-      setStatus((e && e.message) ? e.message : 'Не удалось сохранить аватар.', true);
+      const message = (e && e.message) ? e.message : 'Не удалось сохранить аватар.';
+      setStatus(message, true);
+      alert(message);
       if(newObjectName){
         try{ await sb.storage.from('Avatars').remove([newObjectName]); }catch(_){}
       }
     }finally{
-      saving = false;
-      if(btn){ btn.disabled = false; btn.textContent = 'Сохранить аватар'; }
+      setSaving(false);
     }
   }
 
   async function init(){
     const user = await requireUser();
     if(!user) return;
-    el('backProfile').href = safeReturnUrl();
-    el('profileLink').href = safeReturnUrl();
+    if(typeof window.initDrawEditor !== 'function'){
+      alert('Редактор не загрузился. Проверьте draw.js.');
+      return;
+    }
     window.initDrawEditor({ canvasPreset:'avatar', allowCustomCanvas:true, canvasWidth:600, canvasHeight:600 });
+    fitCanvasWrap();
+    requestAnimationFrame(fitCanvasWrap);
+    setTimeout(fitCanvasWrap, 80);
+    window.addEventListener('resize', fitCanvasWrap);
+    window.addEventListener('orientationchange', function(){ setTimeout(fitCanvasWrap, 80); });
     el('canvasWrap').addEventListener('pointerdown', markUnsaved, true);
-    document.querySelectorAll('input,select,button').forEach(function(node){
-      if(node.id === 'saveAvatarBtn') return;
-      node.addEventListener('input', markUnsaved, true);
-      node.addEventListener('change', markUnsaved, true);
+    const reference = el('refInput');
+    if(reference) reference.addEventListener('change', markUnsaved);
+    ['addLayerBtn','delLayerBtn','clearBtn','addRefBtn','confirmSelBtn','cancelSelBtn'].forEach(function(id){
+      const node = el(id);
+      if(node) node.addEventListener('click', markUnsaved);
     });
-    el('saveAvatarBtn').addEventListener('click', saveAvatar);
+    el('saveDrawBtn').addEventListener('click', saveAvatar);
+    initHelp();
+    initEyedropper();
     setStatus('', false);
   }
 
   init();
 })();
 </script>
+<script src="editor-ui.js"></script>
 </body>
 </html>

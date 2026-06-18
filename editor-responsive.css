@@ -1371,3 +1371,199 @@ body.site-closed .editor-layout{ pointer-events:none; filter:grayscale(.2); }
   .site-header{ gap:6px; padding-left:8px; padding-right:8px; }
   #saveDrawBtn{ flex-basis:72px; }
 }
+
+
+/* === 20.24 FINAL: desktop editor layout restored to the approved compact composition === */
+/* This block is intentionally the final cascade for both editor.html (new frame / continuation)
+   and avatar-editor.html. Their controls share this stylesheet. */
+@media (min-width:980px){
+  :root{
+    --kadry-header-h:60px;
+    --kadry-left-w:162px;
+    --kadry-right-w:226px;
+  }
+
+  /* The exit-arrow block was removed from editor.html. Keep the selector hidden as a
+     defensive fallback for cached or future editor markup. */
+  .site-header .editor-back{ display:none!important; }
+
+  /* Header geometry matches the approved editor: brand on the left rail, two centred
+     navigation links, and a compact save action in the right rail. */
+  .site-header{
+    height:var(--kadry-header-h);
+    grid-template-columns:var(--kadry-left-w) minmax(0,1fr) minmax(0,1fr) var(--kadry-right-w);
+    gap:0;
+    padding:0;
+  }
+  .site-header .brand{ grid-column:1; justify-self:center; text-align:center; }
+  .site-header .brand .above{ font-size:16px; }
+  .site-header .brand .below{ margin:3px 0 0; font-size:9px; }
+  .site-header .hslot{ font-size:14px; }
+  .site-header .hslot.h2{ grid-column:2; justify-self:center; }
+  .site-header .hslot.h3{ grid-column:3; justify-self:center; }
+  #saveDrawBtn{
+    grid-column:4;
+    justify-self:center;
+    min-width:88px;
+    width:88px;
+    height:34px;
+    padding:0 10px;
+    border-radius:9px;
+    font-size:12px;
+    box-shadow:0 5px 12px rgba(31,128,255,.20);
+  }
+  #timerContainer{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+  }
+
+  .canvas-fit-area{ inset:18px 14px 58px; }
+  #canvasWrap{ border-width:8px; }
+
+  /* Left rail: compact tool cards retain the same proportions as the approved view. */
+  .control-column.left-column{ padding:10px 8px 14px; }
+  .control-column.left-column .control-panel{ padding:10px; margin-bottom:12px; border-radius:11px; }
+  .left-column .control-panel h2{ margin-bottom:9px; font-size:13px; }
+  .left-column .tool-grid{ grid-template-columns:repeat(3,30px); gap:8px; }
+  .left-column .tool-button{ width:30px; height:30px; padding:2px; border-radius:7px; }
+  .left-column .field-group{ margin-top:10px; }
+  .left-column .field-label{ margin-bottom:5px; font-size:11px; }
+  .left-column input[type="range"]{ height:14px; }
+
+  /* Right rail is intentionally dense. Saved-colour cells are one compact row,
+     reserving enough vertical space for at least three complete layer rows. */
+  .control-column.right-column{
+    display:grid;
+    grid-template-rows:auto minmax(196px,1fr) auto;
+    align-content:stretch;
+    gap:8px;
+    height:100%;
+    min-height:0;
+    padding:8px;
+    overflow:hidden;
+  }
+  .right-column .control-panel{
+    min-height:0;
+    margin:0;
+    padding:8px;
+    border-radius:10px;
+  }
+  .right-column .control-panel h2{ margin-bottom:6px; font-size:13px; }
+  .right-column .color-wheel-wrap{
+    width:92px;
+    margin:0 auto 2px;
+  }
+  .right-column .color-picker-actions{
+    min-height:24px;
+    margin:0 0 2px;
+  }
+  .right-column .color-picker-actions #eyedropperBtn{
+    width:24px;
+    height:24px;
+    padding:3px;
+    border-radius:7px;
+  }
+  .right-column .color-slider-row{
+    grid-template-columns:12px 1fr;
+    gap:5px;
+    margin-top:3px;
+  }
+  .right-column .color-slider-row span{ font-size:10px; }
+  .right-column .color-slider-track,
+  .right-column .color-slider-track input,
+  .right-column .color-slider-track input::-webkit-slider-runnable-track,
+  .right-column .color-slider-track input::-moz-range-track{ height:10px; }
+  .right-column .color-slider-track input::-webkit-slider-thumb{
+    width:12px;
+    height:12px;
+  }
+  .right-column .color-slider-track input::-moz-range-thumb{
+    width:9px;
+    height:9px;
+  }
+  .right-column .color-history{
+    grid-template-columns:repeat(10,minmax(0,1fr));
+    gap:3px;
+    margin-top:5px;
+  }
+  .right-column .color-history-swatch{
+    min-height:16px;
+    border-radius:4px;
+  }
+
+  .right-column .layers-panel{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+  }
+  .right-column .layers-actions{
+    justify-content:center;
+    gap:5px;
+    margin:0 0 5px;
+  }
+  .right-column .panel-action{
+    min-width:26px;
+    width:26px;
+    height:26px;
+    padding:0;
+    border-radius:7px;
+    font-size:15px;
+  }
+  .right-column .field-label{ margin-bottom:2px; font-size:10px; }
+  .right-column #layerOpacity{ margin:1px 0 5px; height:13px; }
+  .right-column #layerList{
+    flex:1 1 auto;
+    min-height:96px;
+    max-height:none;
+    overflow:auto;
+    padding-right:1px;
+    overscroll-behavior:contain;
+  }
+  .right-column #layerList > div{
+    gap:3px!important;
+    min-height:28px!important;
+    margin:2px 0!important;
+    padding:2px!important;
+    border-radius:7px!important;
+  }
+  .right-column #layerList button{
+    min-width:22px;
+    width:22px;
+    height:22px;
+    padding:0;
+    border-radius:5px;
+    font-size:11px;
+  }
+  .right-column #layerList input{
+    height:22px;
+    padding:0 5px;
+    border-radius:5px;
+    font-size:11px;
+  }
+  .right-column .layers-panel .panel-note{ display:none; }
+
+  .right-column .reference-panel{ flex:0 0 auto; }
+  .right-column .reference-panel .panel-note{ display:none; }
+  .right-column .reference-file{ gap:4px; }
+  .right-column #refInput{
+    min-height:28px;
+    padding:4px;
+    border-radius:7px;
+    font-size:10px;
+  }
+  .right-column #addRefBtn{
+    min-height:28px;
+    border-radius:7px;
+    font-size:10px;
+  }
+}
+
+/* Keep the same smaller saved-colour cells in the shared compact editors without
+   changing their mobile drawer navigation or layer controls. */
+@media (max-width:979px){
+  .color-history{ gap:4px; margin-top:7px; }
+  .color-history-swatch{ border-radius:6px; }
+}

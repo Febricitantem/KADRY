@@ -980,6 +980,32 @@ async function getDisplayUrl(storedUrl){
   let currentPage = 1;
   let totalPages = 1;
 
+  // Номер листа каталога хранится в URL. Поэтому при возврате браузерной
+  // кнопкой «Назад» каталог открывается на том же листе, откуда была серия.
+  function getCatalogPageFromUrl() {
+    const rawPage = new URLSearchParams(window.location.search).get('page');
+    const page = Number.parseInt(rawPage || '', 10);
+    return Number.isInteger(page) && page > 0 ? page : 1;
+  }
+
+  function syncCatalogPageToUrl(page) {
+    const url = new URL(window.location.href);
+    if (page > 1) {
+      url.searchParams.set('page', String(page));
+    } else {
+      url.searchParams.delete('page');
+    }
+
+    const nextUrl = url.pathname + url.search + url.hash;
+    if (nextUrl !== window.location.pathname + window.location.search + window.location.hash) {
+      window.history.replaceState(
+        Object.assign({}, window.history.state || {}, { kadryCatalogPage: page }),
+        '',
+        nextUrl
+      );
+    }
+  }
+
   function setupPagination() {
     const pag = document.getElementById('pagination');
     if (!pag) return;
@@ -1278,6 +1304,14 @@ stack.classList.remove('expanded');
 
     totalPages = count ? Math.max(1, Math.ceil(count / PAGE_SIZE)) : 1;
 
+    // Если старый URL ведёт на уже несуществующий лист (например, после
+    // удаления серий), открываем последний доступный лист, а не пустой каталог.
+    if (currentPage > totalPages) {
+      return loadSeries(totalPages);
+    }
+
+    syncCatalogPageToUrl(currentPage);
+
     if (loadingTimer) {
       clearInterval(loadingTimer);
       loadingTimer = null;
@@ -1294,9 +1328,9 @@ stack.classList.remove('expanded');
     }
   }
 
-  // Старт
+  // Старт: URL вида index.html?page=3 сразу открывает третий лист.
   setupPagination();
-  loadSeries(1);
+  loadSeries(getCatalogPageFromUrl());
 </script>
 
 <footer class="kadry-footer" aria-label="Контакты, благодарность и поддержка">

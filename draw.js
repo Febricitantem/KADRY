@@ -629,10 +629,15 @@ function updateSmoothLabel() {
           var l = layers[idx];
           var row = document.createElement('div');
           row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:6px 0;padding:10px 8px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;user-select:none;min-height:36px;';
+          row.className = 'layer-row';
           row.setAttribute('data-idx', String(idx));
           row.draggable = true;
-          if (idx === active) row.style.background = '#eef2ff';
-          var danger = (l.isRef || !l.visible); if (danger) row.style.borderColor = '#ef4444';
+          if (idx === active) {
+            row.classList.add('is-active');
+            row.setAttribute('data-active', 'true');
+          }
+          var danger = (l.isRef || !l.visible);
+          if (danger) row.classList.add('is-danger');
 
           var vis = document.createElement('button');
           vis.textContent = l.visible ? '👁' : '🚫';
