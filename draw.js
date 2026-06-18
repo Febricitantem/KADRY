@@ -118,6 +118,17 @@ function updateSmoothLabel() {
     var isPickingColor = false;
     if (!wrap) { console.warn('canvasWrap not found'); return; }
 
+    // Defensive runtime equivalent of the CSS touch hardening. Some embedded
+    // webviews only honour these prefixed properties when they are set inline.
+    wrap.style.userSelect = 'none';
+    wrap.style.webkitUserSelect = 'none';
+    wrap.style.MozUserSelect = 'none';
+    wrap.style.msUserSelect = 'none';
+    wrap.style.touchAction = 'none';
+    wrap.style.webkitTouchCallout = 'none';
+    wrap.style.webkitUserDrag = 'none';
+    wrap.draggable = false;
+
     document.documentElement.style.overflowX = 'hidden';
     document.body.style.overflowX = 'hidden';
 
@@ -363,8 +374,15 @@ function updateSmoothLabel() {
       if (colorWheelCanvas) {
         var handleWheel = function (e) {
           var rect = colorWheelCanvas.getBoundingClientRect();
-          var x = e.clientX - rect.left;
-          var y = e.clientY - rect.top;
+          // The palette canvas is visually resized by CSS in desktop/mobile layouts,
+          // while triangleGeometry() uses the canvas's intrinsic coordinate system.
+          // Convert pointer coordinates back to intrinsic pixels before hit-testing.
+          // Without this conversion, clicks increasingly miss the triangle and hue ring
+          // whenever CSS makes the canvas smaller or larger than its 220×220 bitmap.
+          var scaleX = rect.width ? (colorWheelCanvas.width / rect.width) : 1;
+          var scaleY = rect.height ? (colorWheelCanvas.height / rect.height) : 1;
+          var x = (e.clientX - rect.left) * scaleX;
+          var y = (e.clientY - rect.top) * scaleY;
           var g = triangleGeometry();
           if (!g) return;
           var dx = x - g.cx;
@@ -393,17 +411,32 @@ function updateSmoothLabel() {
         };
 
         colorWheelCanvas.addEventListener('pointerdown', function (e) {
+          if (e.isPrimary === false) return;
+          if (e.cancelable) e.preventDefault();
+          try { colorWheelCanvas.setPointerCapture(e.pointerId); } catch (_) { }
           startPick();
           handleWheel(e);
-          function moveHandler(ev) { handleWheel(ev); }
-          function upHandler() {
+          function moveHandler(ev) {
+            if (ev.pointerId !== e.pointerId) return;
+            if (ev.cancelable) ev.preventDefault();
+            handleWheel(ev);
+          }
+          function upHandler(ev) {
+            if (ev && ev.pointerId !== e.pointerId) return;
             colorWheelCanvas.removeEventListener('pointermove', moveHandler);
             window.removeEventListener('pointerup', upHandler);
+            window.removeEventListener('pointercancel', upHandler);
+            try {
+              if (colorWheelCanvas.hasPointerCapture && colorWheelCanvas.hasPointerCapture(e.pointerId)) {
+                colorWheelCanvas.releasePointerCapture(e.pointerId);
+              }
+            } catch (_) { }
             endPick();
           }
-          colorWheelCanvas.addEventListener('pointermove', moveHandler);
+          colorWheelCanvas.addEventListener('pointermove', moveHandler, { passive: false });
           window.addEventListener('pointerup', upHandler);
-        });
+          window.addEventListener('pointercancel', upHandler);
+        }, { passive: false });
       }
 
       if (hueSlider) {
@@ -528,8 +561,20 @@ function updateSmoothLabel() {
       if (name == null) name = 'Слой ' + (layers.length + 1);
       var c = document.createElement('canvas'); c.width = W; c.height = H;
       c.style.position = 'absolute'; c.style.inset = '0'; c.style.width = '100%'; c.style.height = '100%';
-      c.style.userSelect = 'none'; c.style.touchAction = 'none';
+      // The drawing surface must never become a selectable/draggable browser object.
+      c.style.userSelect = 'none';
+      c.style.webkitUserSelect = 'none';
+      c.style.MozUserSelect = 'none';
+      c.style.msUserSelect = 'none';
+      c.style.touchAction = 'none';
+      c.style.webkitTouchCallout = 'none';
+      c.style.webkitUserDrag = 'none';
+      c.draggable = false;
       var ctx = c.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+      }
       var layer = {};
       layer.id = String(Date.now() + Math.random());
       layer.name = name;
@@ -822,7 +867,16 @@ function updateSmoothLabel() {
       var c = document.createElement('canvas'); c.width = W; c.height = H;
       c.style.position = 'absolute'; c.style.inset = '0'; c.style.width = '100%'; c.style.height = '100%';
       c.style.pointerEvents = 'none';
+      c.style.userSelect = 'none';
+      c.style.webkitUserSelect = 'none';
+      c.style.webkitTouchCallout = 'none';
+      c.style.webkitUserDrag = 'none';
+      c.draggable = false;
       var ctx = c.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+      }
       wrap.appendChild(c);
       return { canvas: c, ctx: ctx };
     })();
@@ -863,9 +917,9 @@ function updateSmoothLabel() {
       var v = Number(smoothInp.value);
       if (!isFinite(v) || isNaN(v)) v = 0;
 
-      // v = 0..100 → 0..1 → чуть усиливаем эффект до 0..1.2
-      var t = clamp(v / 100, 0, 1);
-      return t * 1.2;
+      // v = 0..100 → 0..1. Values above 1 make Catmull–Rom overshoot
+      // on tight stylus corners, so keep the control in its stable range.
+      return clamp(v / 100, 0, 1);
     }
         function updateBrushHUD() {
       // Толщина: процент относительно максимума слайдера
@@ -979,8 +1033,20 @@ function updateSmoothLabel() {
     }
 
     function redraw(ctx, l, pts) {
-  if (pts.length < 2) return;
+  if (!pts || !pts.length) return;
   ctx.save(); setupStroke(ctx, l);
+
+  // A short tap is a valid brush/eraser action. It used to disappear because
+  // paths with one point were discarded before the canvas was painted.
+  if (pts.length === 1) {
+    if (tool() === 'brush' || tool() === 'eraser') {
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, Math.max(0.5, size() / 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
 
   // базовое значение из слайдера 0..1
   var s = smooth();
@@ -1162,10 +1228,43 @@ function updateSmoothLabel() {
       updateSelButtons();
     }
 
+    // Pointer Events can batch high-frequency pen samples. Keep them all so
+    // strokes remain rounded instead of jumping between sparse browser events.
+    function getPointerSamples(e) {
+      var samples = [];
+      if (e && typeof e.getCoalescedEvents === 'function') {
+        try {
+          var coalesced = e.getCoalescedEvents();
+          if (coalesced && coalesced.length) {
+            for (var i = 0; i < coalesced.length; i++) samples.push(coalesced[i]);
+          }
+        } catch (_) { }
+      }
+      samples.push(e);
+      return samples;
+    }
+
+    function appendPathPoint(point) {
+      if (!point) return;
+      var previous = pathPoints[pathPoints.length - 1];
+      if (!previous || Math.abs(point.x - previous.x) > 0.01 || Math.abs(point.y - previous.y) > 0.01) {
+        pathPoints.push(point);
+      }
+    }
+
+    function appendFinalPointerPoint(e) {
+      if (!e || typeof e.clientX !== 'number' || typeof e.clientY !== 'number') return;
+      var point = localXY(e);
+      lastPos = point;
+      if (drawing || selecting) appendPathPoint(point);
+    }
+
     function beginDraw(e) {
       if (isTimeExpired()) return;
       var l = layers[active]; if (!l || !l.visible) return;
       var t = tool();
+      var initialPoint = localXY(e);
+      lastPos = initialPoint;
       if (t === 'select') {
         if (selection) return;
         selecting = true;
@@ -1173,7 +1272,7 @@ function updateSmoothLabel() {
         // сохраняем снимок слоя для последующей отмены, даже для референса
         beforeSelectSnapshot = l.canvas.toDataURL('image/png');
         selectionFromRef = !!l.isRef;
-        pathPoints.push(localXY(e));
+        appendPathPoint(initialPoint);
         redrawPreview(); updateSelButtons(); return;
       }
       drawing = true;
@@ -1182,14 +1281,26 @@ function updateSmoothLabel() {
         lastStrokeColorHex = colorInp ? colorInp.value : '#000000';
       }
       pathPoints = [];
-      pathPoints.push(localXY(e));
+      appendPathPoint(initialPoint);
       redrawPreview();
     }
 
     function moveDraw(e) {
       if (isTimeExpired()) return;
       var l = layers[active]; if (!l) return;
-      lastPos = localXY(e);
+      var samples = getPointerSamples(e);
+      var points = [];
+      for (var sampleIndex = 0; sampleIndex < samples.length; sampleIndex++) {
+        var sample = samples[sampleIndex];
+        if (!sample || typeof sample.clientX !== 'number' || typeof sample.clientY !== 'number') continue;
+        var point = localXY(sample);
+        var previousPoint = points[points.length - 1];
+        if (!previousPoint || Math.abs(point.x - previousPoint.x) > 0.01 || Math.abs(point.y - previousPoint.y) > 0.01) {
+          points.push(point);
+        }
+      }
+      if (!points.length) points.push(localXY(e));
+      lastPos = points[points.length - 1];
       var t = tool();
       if (t === 'select') {
         if (dragging && selection) {
@@ -1220,26 +1331,28 @@ function updateSmoothLabel() {
           return;
         }
         if (!selecting) return;
-        pathPoints.push(lastPos);
+        for (var selectionPointIndex = 0; selectionPointIndex < points.length; selectionPointIndex++) {
+          appendPathPoint(points[selectionPointIndex]);
+        }
         redrawPreview();
         if (hudEnabled) {
           var p2 = preview.ctx;
           p2.save(); p2.globalAlpha = 0.25; p2.fillStyle = '#3b82f6';
-          var s = smooth();
-var t = s > 0 ? 0.15 + s * 0.85 : 0;
-drawSmoothFill(p2, pathPoints, t);
-
+          var smoothing = smooth();
+          var selectionTension = smoothing > 0 ? 0.15 + smoothing * 0.85 : 0;
+          drawSmoothFill(p2, pathPoints, selectionTension);
           p2.restore();
         }
         return;
       }
-          if (!drawing) return;
-      pathPoints.push(lastPos);
+      if (!drawing) return;
+      for (var strokePointIndex = 0; strokePointIndex < points.length; strokePointIndex++) {
+        appendPathPoint(points[strokePointIndex]);
+      }
 
       // Ластик: сразу стираем на реальном слое,
       // а на preview показываем только круг курсора.
       if (tool() === 'eraser') {
-        // применяем ластик «вживую»
         redraw(l.ctx, l, pathPoints);
 
         // preview — только HUD без чёрного хвоста
@@ -1253,17 +1366,14 @@ drawSmoothFill(p2, pathPoints, t);
       // Для остальных инструментов: линия на preview, слой обновляется при отпускании.
       preview.ctx.clearRect(0, 0, W, H);
       if (hudEnabled) {
-        // рисуем временную линию
         redraw(preview.ctx, l, pathPoints);
-        // и поверх — круг курсора
         drawCursorCircle();
       }
-
-
     }
 
     function endDraw(e) {
       if (isTimeExpired()) return;
+      appendFinalPointerPoint(e);
       var l = layers[active]; if (!l) return;
       var t = tool();
       if (t === 'select') {
@@ -1288,6 +1398,10 @@ drawSmoothFill(p2, pathPoints, t);
         }
         var temp = document.createElement('canvas'); temp.width = bw; temp.height = bh;
         var tctx = temp.getContext('2d');
+        if (tctx) {
+          tctx.imageSmoothingEnabled = true;
+          if ('imageSmoothingQuality' in tctx) tctx.imageSmoothingQuality = 'high';
+        }
         tctx.save();
         tctx.translate(-minx, -miny);
         tctx.beginPath();
@@ -1319,7 +1433,7 @@ drawSmoothFill(p2, pathPoints, t);
         };
         selectionFromRef = !!l.isRef;
 
-        var p3 = localXY(e);
+        var p3 = lastPos;
         dragging = true; dragMode = 'move';
         dragOffX = p3.x - selection.x;
         dragOffY = p3.y - selection.y;
@@ -1337,17 +1451,51 @@ drawSmoothFill(p2, pathPoints, t);
 
 
 
-    // ---- pointer события
-    wrap.addEventListener('pointerdown', function (e) {
-      // ❌ Блокируем long-press на стилусе, который эмулирует правую кнопку
-if (e.pointerType === 'pen' && e.button === 2) {
-  e.preventDefault();
-  return;
-}
+    // ---- Pointer Events: one captured primary pointer per gesture.
+    // This prevents text-selection/scroll gestures from competing with a pen or finger
+    // and removes the former duplicate move/up listeners that processed each stroke twice.
+    var activePointerId = null;
+    var activePointerType = null;
 
+    function clearActivePointer(e) {
+      if (!e || activePointerId !== e.pointerId) return;
+      var pointerId = activePointerId;
+      activePointerId = null;
+      activePointerType = null;
+      try {
+        if (wrap.hasPointerCapture && wrap.hasPointerCapture(pointerId)) wrap.releasePointerCapture(pointerId);
+      } catch (_) { }
+    }
+
+    function finishCapturedPointer(e) {
+      if (!e || activePointerId !== e.pointerId) return;
+      if (isPanning && tool() === 'zoom') {
+        isPanning = false;
+        updateToolCursor();
+      } else {
+        endDraw(e);
+      }
+      clearActivePointer(e);
+    }
+
+    wrap.addEventListener('pointerdown', function (e) {
+      // Ignore secondary touches: a second finger must not start a second stroke.
+      if (e.isPrimary === false) return;
+      if (activePointerId !== null && activePointerId !== e.pointerId) {
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+      // Do not turn a pen barrel-button/right click into a brush stroke.
+      if ((e.pointerType === 'pen' && e.button === 2) || (e.button !== 0 && !(tool() === 'select' && e.button === 2))) {
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
       if (isTimeExpired()) return;
+
+      activePointerId = e.pointerId;
+      activePointerType = e.pointerType || 'mouse';
       try { wrap.setPointerCapture(e.pointerId); } catch (_) { }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
 
       // Режим лупы: панорамирование
       if (tool() === 'zoom') {
@@ -1375,6 +1523,7 @@ if (e.pointerType === 'pen' && e.button === 2) {
           beforeSelectSnapshot = null;
           redrawPreview();
           updateSelButtons();
+          clearActivePointer(e);
           return;
         }
         if (selection) {
@@ -1389,12 +1538,13 @@ if (e.pointerType === 'pen' && e.button === 2) {
       }
 
       beginDraw(e);
-    });
+    }, { passive: false });
 
     wrap.addEventListener('pointermove', function (e) {
+      if (activePointerId !== null && activePointerId !== e.pointerId) return;
       if (isTimeExpired()) return;
+      if (activePointerId !== null && e.cancelable) e.preventDefault();
       if (isPanning && tool() === 'zoom') {
-        e.preventDefault();
         var dx = e.clientX - panStartX;
         var dy = e.clientY - panStartY;
         panX = panStartOffsetX + dx;
@@ -1403,37 +1553,39 @@ if (e.pointerType === 'pen' && e.button === 2) {
         return;
       }
       moveDraw(e);
-    });
+    }, { passive: false });
 
-    wrap.addEventListener('pointerup', function (e) {
-      if (isTimeExpired()) return;
+    wrap.addEventListener('pointerup', finishCapturedPointer, { passive: false });
+    wrap.addEventListener('pointercancel', finishCapturedPointer, { passive: false });
+    wrap.addEventListener('lostpointercapture', function (e) {
+      if (!e || activePointerId !== e.pointerId) return;
+      // A lost capture can occur when the browser interrupts a pen/touch gesture.
+      // Finalize the in-progress action once instead of leaving a stuck live stroke.
       if (isPanning && tool() === 'zoom') {
         isPanning = false;
         updateToolCursor();
-        return;
+      } else {
+        endDraw(e);
       }
-      endDraw(e);
+      activePointerId = null;
+      activePointerType = null;
     });
-    wrap.addEventListener('pointerleave', function (e) {
-      if (isTimeExpired()) return;
-      if (isPanning && tool() === 'zoom') {
-        isPanning = false;
-        updateToolCursor();
-        return;
-      }
-      endDraw(e);
-    });
-    wrap.addEventListener('contextmenu', (e) => {
-  e.preventDefault(); // блокируем ВСЕ варианты правого клика
-});
 
-
-
-
-    wrap.addEventListener('pointermove', moveDraw);
-    wrap.addEventListener('pointerup', endDraw);
-    wrap.addEventListener('pointerleave', endDraw);
-    wrap.addEventListener('contextmenu', function (e) { if (tool() === 'select') { e.preventDefault(); } });
+    // Suppress native browser selection, drag images and long-press callouts only
+    // inside the real drawing surface. UI inputs outside the canvas remain normal.
+    function suppressNativeCanvasGesture(e) {
+      if (e && e.cancelable) e.preventDefault();
+    }
+    wrap.addEventListener('selectstart', suppressNativeCanvasGesture, true);
+    wrap.addEventListener('dragstart', suppressNativeCanvasGesture, true);
+    wrap.addEventListener('contextmenu', suppressNativeCanvasGesture, true);
+    wrap.addEventListener('touchstart', suppressNativeCanvasGesture, { passive: false, capture: true });
+    wrap.addEventListener('touchmove', suppressNativeCanvasGesture, { passive: false, capture: true });
+    wrap.addEventListener('touchend', suppressNativeCanvasGesture, { passive: false, capture: true });
+    wrap.addEventListener('touchcancel', suppressNativeCanvasGesture, { passive: false, capture: true });
+    wrap.addEventListener('gesturestart', suppressNativeCanvasGesture, { passive: false });
+    wrap.addEventListener('gesturechange', suppressNativeCanvasGesture, { passive: false });
+    wrap.addEventListener('gestureend', suppressNativeCanvasGesture, { passive: false });
 
 
     // Зум колесиком мыши в режиме лупы
