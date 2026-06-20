@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="favicon.png" />
   <title>Kadry — Редактор</title>
   <!-- Базовая стабильная версия редактора.
        ВАЖНО: вернули целостную разметку и рабочий холст.
@@ -16,12 +17,35 @@
   <script src="admin.js"></script>
   <!-- Редактор рисования -->
   <script src="draw.js"></script>
+  <style id="editor-auth-gate-styles">
+    .editor-auth-gate{position:fixed;inset:0;z-index:99980;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.72);backdrop-filter:blur(3px);box-sizing:border-box;}
+    body.editor-auth-blocked .editor-auth-gate{display:flex;}
+    .editor-auth-gate-card{width:min(460px,92vw);border:1px solid rgba(255,255,255,.18);border-radius:18px;background:#111827;color:#fff;box-shadow:0 18px 45px rgba(0,0,0,.38);padding:20px;box-sizing:border-box;}
+    .editor-auth-gate-title{font-weight:900;font-size:20px;line-height:1.2;margin-bottom:10px;}
+    .editor-auth-gate-text{font-size:14px;line-height:1.45;color:#d1d5db;margin-bottom:16px;}
+    .editor-auth-gate-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+    .editor-auth-gate-btn{border-radius:10px;border:1px solid #4b5563;background:#111827;color:#e5e7eb;text-decoration:none;font:inherit;font-weight:800;padding:9px 13px;cursor:pointer;}
+    .editor-auth-gate-btn.primary{border-color:#2563eb;background:#2563eb;color:#fff;}
+  </style>
 </head>
 <body>
   <div id="site-closed-overlay" class="site-closed-overlay" style="display:none">
     <div class="site-closed-card">
       <div class="site-closed-title">Онлайн сейчас закрыт</div>
       <div class="site-closed-text" id="site-closed-message">Рисование временно недоступно. Попробуйте зайти позже.</div>
+    </div>
+  </div>
+
+  <div id="editor-auth-gate" class="editor-auth-gate" aria-live="polite" aria-hidden="true">
+    <div class="editor-auth-gate-card">
+      <div class="editor-auth-gate-title">Нужен вход перед рисованием</div>
+      <div class="editor-auth-gate-text">
+        Чтобы рисунок не потерялся, войдите до открытия рабочего холста. После входа серия или кадр будут сохраняться от вашего профиля.
+      </div>
+      <div class="editor-auth-gate-actions">
+        <a class="editor-auth-gate-btn" href="index.html">Вернуться в каталог</a>
+        <button id="editor-auth-gate-login" class="editor-auth-gate-btn primary" type="button">Войти</button>
+      </div>
     </div>
   </div>
 
@@ -118,7 +142,7 @@
 
           <div class="editor-help-anchor" aria-label="Справка по редактору">
             <div class="editor-help-cat-viewport" aria-hidden="true">
-              <img id="editorHelpCat" src="KOT0-static.png" alt="">
+              <img id="editorHelpCat" src="editor-help-cat.gif" alt="">
             </div>
             <button id="helpBtn" class="editor-help-btn" type="button" title="Открыть справку">
               <span class="editor-help-btn-icon" aria-hidden="true">?</span>
@@ -299,6 +323,30 @@
       } catch (_) {
         return false;
       }
+    }
+
+    function setEditorAuthGateVisible(visible) {
+      const gate = document.getElementById('editor-auth-gate');
+      document.body.classList.toggle('editor-auth-blocked', !!visible);
+      if (gate) gate.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    async function requireEditorEntryAuth() {
+      const message = mode === 'new'
+        ? 'Войдите, чтобы создать серию. Так рисунок сразу будет привязан к вашему профилю и сможет сохраниться.'
+        : 'Войдите, чтобы рисовать и отправлять кадры. Так работа будет привязана к вашему профилю и сможет сохраниться.';
+
+      const ok = await requireKadryAuth(message);
+      setEditorAuthGateVisible(!ok);
+      return ok;
+    }
+
+    const editorAuthGateLogin = document.getElementById('editor-auth-gate-login');
+    if (editorAuthGateLogin) {
+      editorAuthGateLogin.addEventListener('click', async function (e) {
+        e.preventDefault();
+        await requireEditorEntryAuth();
+      });
     }
   
 async function checkSiteOpen() {
@@ -1014,7 +1062,10 @@ location.replace('vote.html?series=' + seriesId);
     }
     window.addEventListener('resize', fitCanvasWrap);
 
+    let editorStarted = false;
+
     function markUnsaved() {
+      if (!editorStarted) return;
       if (mode === 'new') unsaved = true;
     }
     document.addEventListener('pointerdown', markUnsaved, { passive: true });
@@ -1446,6 +1497,12 @@ location.replace('vote.html?series=' + seriesId);
     });
 
     async function startAll() {
+      if (editorStarted) return;
+      const authOk = await requireEditorEntryAuth();
+      if (!authOk) return;
+
+      editorStarted = true;
+      setEditorAuthGateVisible(false);
       setHeaderForMode();
       hookHeaderLinks();
       initEditor();
@@ -1534,6 +1591,13 @@ location.replace('vote.html?series=' + seriesId);
       initHelpPaging();
     }
 
+
+    window.addEventListener('kadry:auth-changed', function (event) {
+      const detail = event && event.detail;
+      if (!editorStarted && detail && detail.user) {
+        startAll();
+      }
+    });
 
     startAll();
   })();

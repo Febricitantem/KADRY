@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="favicon.png" />
   <title>Серия | Kadry</title>
   <style>
     :root {
@@ -615,32 +616,40 @@
     }
     .kadry-footer__artist{
       display:flex;
-      gap:12px;
+      gap:16px;
       align-items:center;
     }
     .kadry-footer__visual-placeholder{
       flex:0 0 auto;
       display:grid;
       place-items:center;
-      width:74px;
-      height:74px;
-      padding:7px;
+      width:112px;
+      height:112px;
+      padding:0;
       box-sizing:border-box;
-      border:1px dashed #94a3b8;
-      border-radius:16px;
-      background:linear-gradient(135deg,#f8fafc,#eef2ff);
-      color:#64748b;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      color:inherit;
       text-align:center;
       font-size:10px;
       line-height:1.2;
+      overflow:visible;
     }
     .kadry-footer__visual-placeholder--support{
-      width:92px;
-      height:92px;
-      border-color:#fda4af;
-      border-radius:20px;
-      background:linear-gradient(135deg,#fff1f2,#fff7ed);
-      color:#be123c;
+      width:150px;
+      height:108px;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      color:inherit;
+    }
+
+    .kadry-footer__visual-image{
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:contain;
     }
     .kadry-footer__copy{
       margin:0;
@@ -764,8 +773,8 @@
     .kadry-footer__support-box{
       display:flex;
       align-items:center;
-      gap:15px;
-      min-height:132px;
+      gap:20px;
+      min-height:148px;
       padding:16px;
       box-sizing:border-box;
       border:1px solid #fecdd3;
@@ -858,7 +867,7 @@
       }
       .kadry-footer__column--support{margin-top:20px;}
       .kadry-footer__support-box{align-items:flex-start;}
-      .kadry-footer__visual-placeholder--support{width:74px;height:74px;border-radius:16px;}
+      .kadry-footer__visual-placeholder--support{width:128px;height:92px;border-radius:0;}
       .kadry-footer__bottom{min-height:48px;padding:0 16px;font-size:13px;}
     }
 
@@ -1850,7 +1859,7 @@ function syncAdminUI(){
       <section class="kadry-footer__column kadry-footer__column--thanks">
         <h2 class="kadry-footer__title">Благодарим</h2>
         <div class="kadry-footer__artist">
-          <div class="kadry-footer__visual-placeholder" role="img" aria-label="Место для будущей иллюстрации художника">иллюстрация<br>скоро</div>
+          <div class="kadry-footer__visual-placeholder" role="img" aria-label="Иллюстрация художника"><img class="kadry-footer__visual-image" src="assets/illustrations/hudozhnik.png" alt=""></div>
           <p class="kadry-footer__copy">
             За иконки и анимации — <a class="kadry-footer__link" href="https://t.me/Shelly_huelly" target="_blank" rel="noopener noreferrer">художник</a>.
             <br>Спасибо за визуальный стиль «Кадров».
@@ -1883,7 +1892,7 @@ function syncAdminUI(){
             </p>
             <a class="kadry-footer__boosty" href="https://boosty.to/febricitantem/donate" target="_blank" rel="noopener noreferrer">Поддержать на Boosty</a>
           </div>
-          <div class="kadry-footer__visual-placeholder kadry-footer__visual-placeholder--support" role="img" aria-label="Место для будущей иллюстрации поддержки">иллюстрация<br>скоро</div>
+          <div class="kadry-footer__visual-placeholder kadry-footer__visual-placeholder--support" role="img" aria-label="Иллюстрация благодарности"><img class="kadry-footer__visual-image" src="assets/illustrations/blagodarnost.png" alt=""></div>
         </div>
       </section>
     </div>
