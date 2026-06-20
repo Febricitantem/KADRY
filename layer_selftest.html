@@ -1,0 +1,80 @@
+<!doctype html><meta charset="utf-8">
+<title>Kadry layer self-test</title>
+<style>
+body{font:14px/1.4 system-ui, sans-serif; padding:16px; background:#f8fafc; color:#111827;}
+#canvasWrap{position:relative;width:200px;height:100px;background:white;border:1px solid #cbd5e1;margin-bottom:12px;}
+#canvasWrap canvas{width:100%;height:100%;display:block;}
+pre{white-space:pre-wrap;background:#111827;color:#e5e7eb;padding:12px;border-radius:10px;max-width:980px;}
+</style>
+<h1>Kadry layer self-test</h1>
+<div id="canvasWrap"><div id="colorPreview"></div></div>
+<div id="layerList"></div>
+<input id="brushColor" value="#ff0000"><input id="brushSize" value="20"><input id="brushAlpha" value="1"><input id="brushSmooth" value="0">
+<select id="toolSel"><option value="brush" selected>brush</option><option value="eraser">eraser</option><option value="fill">fill</option><option value="select">select</option><option value="zoom">zoom</option><option value="eyedropper">eyedropper</option></select>
+<input id="layerOpacity" value="1"><button id="addLayerBtn">add</button><button id="delLayerBtn">delete</button><button id="clearBtn">clear</button><button id="undoBtn">undo</button><button id="redoBtn">redo</button><button id="confirmSelBtn">ok</button><button id="cancelSelBtn">cancel</button><input id="refInput" type="file"><button id="addRefBtn">ref</button>
+<canvas id="colorWheel"></canvas><input id="hueSlider" type="range"><input id="satSlider" type="range"><input id="valSlider" type="range"><span id="brushSizeValue"></span><span id="brushAlphaValue"></span><span id="brushSmoothValue"></span>
+<pre id="out">running…</pre>
+<script src="draw.js?v=layers-runtime-dedupe-20260620b"></script>
+<script>
+(function(){
+  function makeBaseDataUrl(){
+    const c=document.createElement('canvas'); c.width=200; c.height=100;
+    const x=c.getContext('2d'); x.fillStyle='#00ff00'; x.fillRect(20,40,40,20);
+    return c.toDataURL('image/png');
+  }
+  function dispatch(type,x,y){
+    const wrap=document.getElementById('canvasWrap'); const r=wrap.getBoundingClientRect();
+    const ev=new PointerEvent(type,{bubbles:true,cancelable:true,clientX:r.left+x,clientY:r.top+y,pointerId:1,pointerType:'mouse',button:0,buttons:type==='pointerup'?0:1,isPrimary:true});
+    wrap.dispatchEvent(ev);
+  }
+  function drawLine(x1,y1,x2,y2,color){
+    document.getElementById('toolSel').value='brush';
+    document.getElementById('toolSel').dispatchEvent(new Event('change'));
+    document.getElementById('brushColor').value=color;
+    document.getElementById('brushSize').value='20';
+    dispatch('pointerdown',x1,y1); dispatch('pointermove',x2,y2); dispatch('pointerup',x2,y2);
+  }
+  function pixAt(x,y){
+    const c=[...document.querySelectorAll('#canvasWrap canvas')].find(c=>c.dataset.kadryLayer==='composite');
+    return [...c.getContext('2d').getImageData(x,y,1,1).data];
+  }
+  function clickRowButton(rowIndex, btnIndex){
+    const rows=[...document.querySelectorAll('#layerList .layer-row')];
+    rows[rowIndex].querySelectorAll('button')[btnIndex].click();
+  }
+  function setActiveRow(rowIndex){
+    const rows=[...document.querySelectorAll('#layerList .layer-row')]; rows[rowIndex].click();
+  }
+  function isRed(p){return p[0]>180&&p[1]<80&&p[2]<80&&p[3]>180}
+  function isBlue(p){return p[2]>180&&p[0]<80&&p[1]<80&&p[3]>180}
+  function isGreen(p){return p[1]>180&&p[0]<80&&p[2]<80&&p[3]>180}
+  function isClear(p){return p[3]===0}
+  const results=[]; let ok=true;
+  function assert(name, cond, details){ results.push({name, pass:!!cond, details}); if(!cond) ok=false; }
+
+  window.initDrawEditor({allowCustomCanvas:true, canvasWidth:200, canvasHeight:100, baseImageUrl:makeBaseDataUrl()});
+  setTimeout(function(){
+    let d=window.__kadryLayerDebug();
+    assert('continuation starts with one base layer', d.layers.length===1 && d.layers[0].isBase && d.activeIndex===0, d);
+    assert('base image visible', isGreen(pixAt(30,50)), pixAt(30,50));
+    drawLine(120,50,160,50,'#ff0000');
+    assert('drawing on base works', isRed(pixAt(140,50)), pixAt(140,50));
+    clickRowButton(0,0);
+    assert('hiding base hides image and strokes', isClear(pixAt(30,50)) && isClear(pixAt(140,50)), {base:pixAt(30,50), stroke:pixAt(140,50)});
+    clickRowButton(0,0);
+    document.getElementById('addLayerBtn').click();
+    drawLine(120,70,160,70,'#0000ff');
+    assert('top layer blue drawn', isBlue(pixAt(140,70)), pixAt(140,70));
+    document.getElementById('clearBtn').click();
+    assert('clear top removes blue without touching base', isClear(pixAt(140,70)) && isRed(pixAt(140,50)), {top:pixAt(140,70), baseStroke:pixAt(140,50)});
+    setActiveRow(1); clickRowButton(1,0);
+    assert('hidden base has no migrated top pixels', isClear(pixAt(30,50)) && isClear(pixAt(140,50)) && isClear(pixAt(140,70)), {base:pixAt(30,50), baseStroke:pixAt(140,50), top:pixAt(140,70)});
+    clickRowButton(1,0);
+    setActiveRow(0); drawLine(120,70,160,70,'#0000ff'); document.getElementById('delLayerBtn').click();
+    assert('delete top leaves base only', window.__kadryLayerDebug().layers.length===1, window.__kadryLayerDebug());
+    assert('delete top does not migrate pixels to base', isGreen(pixAt(30,50)) && isRed(pixAt(140,50)) && isClear(pixAt(140,70)), {base:pixAt(30,50), baseStroke:pixAt(140,50), top:pixAt(140,70)});
+    document.getElementById('out').textContent=JSON.stringify({ok, results, debug:window.__kadryLayerDebug()}, null, 2);
+    document.body.dataset.done='1';
+  },300);
+})();
+</script>

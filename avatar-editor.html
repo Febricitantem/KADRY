@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="editor-responsive.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="admin.js"></script>
-  <script src="draw.js"></script>
+  <script src="draw.js?v=layers-runtime-dedupe-20260620b"></script>
 </head>
 <body>
   <header class="site-header">
@@ -344,10 +344,12 @@
   function pickColorAt(clientX, clientY){
     const wrap = el('canvasWrap');
     if(!wrap) return null;
+    const picker = window.drawAPI && window.drawAPI.pickColorAtClient;
+    if(typeof picker === 'function') return picker(clientX, clientY);
     const canvases = Array.from(wrap.querySelectorAll('canvas'));
     const layer = canvases.find(function(node){
-      const z = Number(node.style.zIndex || 0);
-      return z > 0 && z < 10;
+      const type = node.dataset && node.dataset.kadryLayer;
+      return type !== 'preview' && type !== 'reference' && node.style.display !== 'none';
     }) || canvases[0];
     if(!layer) return null;
     const rect = layer.getBoundingClientRect();

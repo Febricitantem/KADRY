@@ -118,6 +118,34 @@ function updateSmoothLabel() {
     var isPickingColor = false;
     if (!wrap) { console.warn('canvasWrap not found'); return; }
 
+    // Жизненный цикл редактора должен быть идемпотентным. Если initDrawEditor
+    // вызывается повторно, старый экземпляр обязан быть отключён, а служебные
+    // DOM-элементы предыдущего запуска удалены. Иначе на холсте остаются
+    // дубликаты composite/preview, и кажется, что очищенные или удалённые
+    // штрихи попали в скрытый базовый слой.
+    var runtimeId = 'kadry-draw-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    var disposed = false;
+    if (window.__kadryDrawRuntime && typeof window.__kadryDrawRuntime.destroy === 'function') {
+      try { window.__kadryDrawRuntime.destroy(); } catch (_) {}
+    }
+    Array.prototype.slice.call(wrap.querySelectorAll('.kadry-canvas-white-background, canvas[data-kadry-layer="composite"], canvas[data-kadry-layer="preview"]')).forEach(function (node) {
+      try { if (node && node.parentNode) node.parentNode.removeChild(node); } catch (_) {}
+    });
+    function isDisposed() {
+      return disposed || !window.__kadryDrawRuntime || window.__kadryDrawRuntime.id !== runtimeId;
+    }
+    window.__kadryDrawRuntime = {
+      id: runtimeId,
+      destroy: function () {
+        disposed = true;
+        try {
+          Array.prototype.slice.call(wrap.querySelectorAll('.kadry-canvas-white-background, canvas[data-kadry-layer="composite"], canvas[data-kadry-layer="preview"]')).forEach(function (node) {
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+          });
+        } catch (_) {}
+      }
+    };
+
     // Defensive runtime equivalent of the CSS touch hardening. Some embedded
     // webviews only honour these prefixed properties when they are set inline.
     wrap.style.userSelect = 'none';
@@ -128,6 +156,18 @@ function updateSmoothLabel() {
     wrap.style.webkitTouchCallout = 'none';
     wrap.style.webkitUserDrag = 'none';
     wrap.draggable = false;
+
+    // Белый фон холста существует всегда, но не является слоем.
+    // Он нужен для нормального визуального опыта и для непрозрачного PNG-экспорта.
+    var whiteCanvasBackground = document.createElement('div');
+    whiteCanvasBackground.className = 'kadry-canvas-white-background';
+    whiteCanvasBackground.setAttribute('aria-hidden', 'true');
+    whiteCanvasBackground.style.position = 'absolute';
+    whiteCanvasBackground.style.inset = '0';
+    whiteCanvasBackground.style.background = '#ffffff';
+    whiteCanvasBackground.style.pointerEvents = 'none';
+    whiteCanvasBackground.style.zIndex = '0';
+    wrap.insertBefore(whiteCanvasBackground, wrap.firstChild);
 
     document.documentElement.style.overflowX = 'hidden';
     document.body.style.overflowX = 'hidden';
@@ -154,6 +194,60 @@ function updateSmoothLabel() {
       document.documentElement.style.setProperty('--kadry-canvas-ratio', String(W) + ' / ' + String(H));
       wrap.setAttribute('aria-label', 'Рабочий холст ' + W + '×' + H);
     } catch (_) {}
+
+    // Единый видимый canvas-композит.
+    // Реальные слои ниже остаются отдельными canvas-буферами с собственными пикселями,
+    // но на экран выводится только этот композит. Так скрытие, очистка, удаление и
+    // перестановка слоёв не зависят от поведения DOM-стека canvas в конкретном браузере.
+    var displayComposite = document.createElement('canvas');
+    displayComposite.width = W;
+    displayComposite.height = H;
+    displayComposite.dataset.kadryLayer = 'composite';
+    displayComposite.style.position = 'absolute';
+    displayComposite.style.inset = '0';
+    displayComposite.style.width = '100%';
+    displayComposite.style.height = '100%';
+    displayComposite.style.pointerEvents = 'none';
+    displayComposite.style.userSelect = 'none';
+    displayComposite.style.webkitUserSelect = 'none';
+    displayComposite.style.webkitTouchCallout = 'none';
+    displayComposite.style.webkitUserDrag = 'none';
+    displayComposite.draggable = false;
+    var displayCompositeCtx = displayComposite.getContext('2d');
+    if (displayCompositeCtx) {
+      displayCompositeCtx.imageSmoothingEnabled = true;
+      if ('imageSmoothingQuality' in displayCompositeCtx) displayCompositeCtx.imageSmoothingQuality = 'high';
+    }
+    wrap.appendChild(displayComposite);
+
+    function getDrawingSurfaceRect() {
+      var node = displayComposite || (preview && preview.canvas) || wrap;
+      var rect = node && node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+      if (!rect || !rect.width || !rect.height) rect = wrap.getBoundingClientRect();
+      return rect;
+    }
+
+    function renderComposite() {
+      if (isDisposed()) return;
+      if (!displayCompositeCtx || !displayComposite) return;
+      displayCompositeCtx.save();
+      displayCompositeCtx.setTransform(1, 0, 0, 1, 0, 0);
+      displayCompositeCtx.globalCompositeOperation = 'source-over';
+      displayCompositeCtx.globalAlpha = 1;
+      displayCompositeCtx.clearRect(0, 0, W, H);
+      var list = Array.isArray(layers) ? layers : [];
+      for (var ci = 0; ci < list.length; ci++) {
+        var layerForComposite = list[ci];
+        if (!layerForComposite || !layerForComposite.visible) continue;
+        if (!layerForComposite.canvas) continue;
+        if (layerForComposite.opacity <= 0) continue;
+        displayCompositeCtx.globalAlpha = clamp(layerForComposite.opacity, 0, 1);
+        try { displayCompositeCtx.drawImage(layerForComposite.canvas, 0, 0); } catch (_) {}
+      }
+      displayCompositeCtx.globalAlpha = 1;
+      displayCompositeCtx.restore();
+    }
+
     // ---- палитра справа (HSV-круг, слайдеры и история цветов)
     function applyHSVToUI() {
       var rgb = hsvToRgb(currentHSV.h, currentHSV.s, currentHSV.v);
@@ -512,6 +606,7 @@ function updateSmoothLabel() {
     var brushCursorVisible = true; // флаг, можно ли рисовать круг-курсор кисти
         // Сброс всех "живых" действий (мазок, превью, выделение)
     function cancelLiveOps() {
+      if (isDisposed()) return;
       // текущий мазок
       drawing = false;
       pathPoints = [];
@@ -539,6 +634,7 @@ function updateSmoothLabel() {
 
 
     function applyLockState() {
+      if (isDisposed()) return;
       var locked = isTimeExpired();
       wrap.style.pointerEvents = locked ? 'none' : '';
       wrap.style.filter = locked ? 'grayscale(.1)' : '';
@@ -553,13 +649,23 @@ function updateSmoothLabel() {
     var bodyObserver = new MutationObserver(function () { applyLockState(); });
     bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+    var hiddenLayerWarningAt = 0;
+    function warnHiddenLayer() {
+      var now = Date.now();
+      if (now - hiddenLayerWarningAt < 900) return;
+      hiddenLayerWarningAt = now;
+      alert('нельзя рисовать на скрытом слое');
+    }
+
     // ---- слои
     var layers = [];
     var active = -1;
 
-    function makeLayer(name, isRef) {
+    function makeLayer(name, isRef, options) {
+      options = options || {};
       if (name == null) name = 'Слой ' + (layers.length + 1);
       var c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.dataset.kadryLayer = isRef ? 'reference' : 'paint';
       c.style.position = 'absolute'; c.style.inset = '0'; c.style.width = '100%'; c.style.height = '100%';
       // The drawing surface must never become a selectable/draggable browser object.
       c.style.userSelect = 'none';
@@ -583,10 +689,16 @@ function updateSmoothLabel() {
       layer.visible = true;
       layer.opacity = 1;
       layer.isRef = !!isRef;
+      layer.isBase = !!options.isBase;
       layers.push(layer);
-      wrap.appendChild(c);
+      // Слой является внутренним буфером пикселей. Его нельзя держать как видимый DOM-canvas,
+      // иначе старый canvas может продолжать участвовать в отображении/экспорте независимо
+      // от состояния layer.visible. На сцене рисуется только displayComposite.
       setZ();
-      setActive(layers.length - 1);
+      if (options.activate !== false) setActive(layers.length - 1);
+      if (typeof refreshCanvasStack === 'function' && typeof preview !== 'undefined' && preview && preview.canvas) {
+        refreshCanvasStack();
+      }
       return layer;
     }
 
@@ -603,20 +715,123 @@ function updateSmoothLabel() {
       var l = makeLayer(isRef ? 'Референс' : 'Слой', !!isRef);
       drawImageFit(l.ctx, img);
       if (isRef) { l.canvas.style.outline = '1px dashed #ef4444'; }
+      renderComposite();
+      redrawPreview();
       return l;
     }
 
+    function rebuildStackOrder() {
+      if (isDisposed()) return;
+      // DOM-порядок: белый фон → внутренние canvas-буферы слоёв → видимый композит → preview/HUD.
+      // Буферы слоёв остаются в DOM только как хранилища пикселей; пользователь видит displayComposite.
+      if (whiteCanvasBackground && whiteCanvasBackground.parentNode !== wrap) {
+        wrap.insertBefore(whiteCanvasBackground, wrap.firstChild);
+      }
+      if (whiteCanvasBackground && wrap.firstChild !== whiteCanvasBackground) {
+        wrap.insertBefore(whiteCanvasBackground, wrap.firstChild);
+      }
+      for (var k = 0; k < layers.length; k++) {
+        // Реальные слои не должны находиться в DOM: это только offscreen-буферы.
+        // Если старый код уже успел добавить canvas слоя в wrap, убираем его.
+        if (layers[k].canvas && layers[k].canvas.parentNode === wrap) {
+          wrap.removeChild(layers[k].canvas);
+        }
+      }
+      if (displayComposite && displayComposite.parentNode !== wrap) wrap.appendChild(displayComposite);
+      if (displayComposite && displayComposite.parentNode === wrap) wrap.appendChild(displayComposite);
+      if (preview && preview.canvas) wrap.appendChild(preview.canvas);
+      if (colorPreviewEl && colorPreviewEl.parentNode === wrap) wrap.appendChild(colorPreviewEl);
+    }
+
     function setZ() {
+      if (isDisposed()) return;
+      if (whiteCanvasBackground) {
+        whiteCanvasBackground.style.zIndex = '0';
+        whiteCanvasBackground.style.display = 'block';
+        whiteCanvasBackground.style.visibility = 'visible';
+        whiteCanvasBackground.style.opacity = '1';
+      }
       layers.forEach(function (l, i) {
-        l.canvas.style.zIndex = String(i + 1);
-        l.canvas.style.display = l.visible ? '' : 'none';
-        l.canvas.style.opacity = String(l.opacity);
+        // Массив слоёв хранится снизу вверх: 0 — самый нижний пользовательский слой.
+        // Белый фон не входит в массив. Canvas слоя — offscreen-буфер, а не часть сцены.
+        l.canvas.style.zIndex = '-1';
+        l.canvas.style.display = 'none';
+        l.canvas.style.visibility = 'hidden';
+        l.canvas.style.opacity = '0';
+        l.canvas.setAttribute('aria-hidden', 'true');
+        l.canvas.style.pointerEvents = 'none';
       });
-      preview.canvas.style.zIndex = String(layers.length + 10);
+      if (displayComposite) {
+        displayComposite.style.zIndex = '10';
+        displayComposite.style.display = 'block';
+        displayComposite.style.visibility = 'visible';
+        displayComposite.style.opacity = '1';
+        displayComposite.style.pointerEvents = 'none';
+      }
+      if (preview && preview.canvas) {
+        preview.canvas.style.zIndex = '20';
+        preview.canvas.style.display = 'block';
+        preview.canvas.style.visibility = 'visible';
+        preview.canvas.style.opacity = '1';
+      }
+    }
+
+    function clearLiveState() {
+      if (isDisposed()) return;
+      drawing = false;
+      selecting = false;
+      dragging = false;
+      dragMode = null;
+      pathPoints = [];
+      selection = null;
+      selectionFromRef = false;
+      beforeSelectSnapshot = null;
+      if (preview && preview.ctx) {
+        preview.ctx.save();
+        preview.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        preview.ctx.globalAlpha = 1;
+        preview.ctx.globalCompositeOperation = 'source-over';
+        preview.ctx.clearRect(0, 0, W, H);
+        preview.ctx.restore();
+      }
+      updateSelButtons();
+    }
+
+    function resetLayerContext(l) {
+      if (!l || !l.ctx) return;
+      try {
+        l.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        l.ctx.globalAlpha = 1;
+        l.ctx.globalCompositeOperation = 'source-over';
+        l.ctx.lineCap = 'round';
+        l.ctx.lineJoin = 'round';
+      } catch (_) {}
+    }
+
+    function purgeLayerHistory(layerId) {
+      if (!layerId) return;
+      try { imgHistory.delete(layerId); } catch (_) {}
+      historyOrder = historyOrder.filter(function (entry) { return entry && entry.layerId !== layerId; });
+      redoOrder = redoOrder.filter(function (entry) { return entry && entry.layerId !== layerId; });
+    }
+
+    function refreshCanvasStack() {
+      if (isDisposed()) return;
+      rebuildStackOrder();
+      setZ();
+      renderComposite();
+      syncLeftPanel();
+      buildLayerList();
+      redrawPreview();
     }
 
     function setActive(i) {
-      active = i;
+      if (isDisposed()) return;
+      if (!layers.length) {
+        active = -1;
+      } else {
+        active = Math.max(0, Math.min(Number(i) || 0, layers.length - 1));
+      }
       syncLeftPanel();
       buildLayerList();
     }
@@ -647,8 +862,8 @@ function updateSmoothLabel() {
             e.stopPropagation();
             if (isTimeExpired()) return;
             l.visible = !l.visible;
-            setZ();
-            buildLayerList();
+            clearLiveState();
+            refreshCanvasStack();
           };
 
           var nameInp = document.createElement('input');
@@ -671,7 +886,7 @@ function updateSmoothLabel() {
               var t = layers.splice(idx, 1)[0];
               var dst = idx + 1;
               layers.splice(dst, 0, t);
-              setActive(dst); reorderCanvases(); setZ(); buildLayerList();
+              setActive(dst); refreshCanvasStack();
             }
           }
           function moveDown() {
@@ -680,7 +895,7 @@ function updateSmoothLabel() {
               var t = layers.splice(idx, 1)[0];
               var dst = idx - 1;
               layers.splice(dst, 0, t);
-              setActive(dst); reorderCanvases(); setZ(); buildLayerList();
+              setActive(dst); refreshCanvasStack();
             }
           }
 
@@ -694,6 +909,7 @@ function updateSmoothLabel() {
             if (isTimeExpired()) { ev.preventDefault(); return; }
             ev.dataTransfer.effectAllowed = 'move';
             ev.dataTransfer.setData('text/plain', String(idx));
+            try { ev.dataTransfer.setData('application/x-kadry-layer-index', String(idx)); } catch (_) {}
             row.style.opacity = '0.6';
           });
           row.addEventListener('dragend', function () { row.style.opacity = ''; });
@@ -704,13 +920,20 @@ function updateSmoothLabel() {
           row.addEventListener('drop', function (ev) {
             if (isTimeExpired()) return;
             ev.preventDefault();
-            var src = Number(ev.dataTransfer.getData('text/plain'));
+            var srcRaw = '';
+            try { srcRaw = ev.dataTransfer.getData('application/x-kadry-layer-index'); } catch (_) {}
+            if (!srcRaw) srcRaw = ev.dataTransfer.getData('text/plain');
+            var src = Number(srcRaw);
             var dst = idx;
             if (isNaN(src) || isNaN(dst) || src === dst) return;
+            if (src < 0 || src >= layers.length || dst < 0 || dst >= layers.length) return;
             var item = layers.splice(src, 1)[0];
-            if (src < dst) dst--;
+            // В списке слои показаны сверху вниз, а в массиве хранятся снизу вверх.
+            // Вставляем без старого сдвига dst--: так строка, на которую бросили слой,
+            // соответствует ожидаемой видимой позиции.
+            dst = Math.max(0, Math.min(dst, layers.length));
             layers.splice(dst, 0, item);
-            setActive(dst); reorderCanvases(); setZ(); buildLayerList();
+            setActive(dst); refreshCanvasStack();
           });
 
           row.appendChild(vis);
@@ -723,7 +946,7 @@ function updateSmoothLabel() {
     }
 
     function reorderCanvases() {
-      for (var k = 0; k < layers.length; k++) { wrap.appendChild(layers[k].canvas); }
+      rebuildStackOrder();
     }
 
     function syncLeftPanel() {
@@ -736,26 +959,48 @@ function updateSmoothLabel() {
       if (isTimeExpired()) return;
       var l = layers[active]; if (!l) return;
       l.opacity = clamp(Number(opacityInp.value) || 0, 0, 1);
-      setZ();
+      refreshCanvasStack();
     });
 
     if (addBtn) addBtn.onclick = function () { if (isTimeExpired()) return; makeLayer(); };
+    function countEditableLayers() {
+      var count = 0;
+      for (var i = 0; i < layers.length; i++) {
+        if (!layers[i].isRef) count++;
+      }
+      return count;
+    }
+
     if (delBtn) delBtn.onclick = function () {
       if (isTimeExpired()) return;
       var l = layers[active]; if (!l) return;
-      if (!confirm('Удалить слой «' + l.name + '»?')) return;
+      clearLiveState();
       var idx = active;
-      layers.splice(idx, 1)[0].canvas.remove();
-      setActive(Math.max(0, Math.min(idx, layers.length - 1)));
-      setZ();
+      var removed = layers.splice(idx, 1)[0];
+      if (removed) {
+        purgeLayerHistory(removed.id);
+        resetLayerContext(removed);
+      }
+      if (removed && removed.canvas && removed.canvas.parentNode) removed.canvas.parentNode.removeChild(removed.canvas);
+      // Удаление должно удалять именно выбранный слой, включая самый первый/базовый.
+      // Не создаём замену автоматически: иначе визуально кажется, что базовый слой
+      // нельзя удалить. Новый слой пользователь добавляет кнопкой «＋».
+      setActive(layers.length ? Math.max(0, Math.min(idx, layers.length - 1)) : -1);
+      refreshCanvasStack();
     };
     if (clearBtn) clearBtn.onclick = function () {
       if (isTimeExpired()) return;
       var l = layers[active]; if (!l) return;
-      if (!confirm('Очистить слой «' + l.name + '»?')) return;
+      clearLiveState();
       if (!l.isRef) snapshot(l);
+      l.ctx.save();
+      l.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      l.ctx.globalAlpha = 1;
+      l.ctx.globalCompositeOperation = 'source-over';
       l.ctx.clearRect(0, 0, W, H);
-      redrawPreview();
+      l.ctx.restore();
+      resetLayerContext(l);
+      refreshCanvasStack();
     };
 
     if (addRefBtn) addRefBtn.onclick = function () {
@@ -800,6 +1045,7 @@ function updateSmoothLabel() {
       img.onload = function () {
         l.ctx.clearRect(0, 0, W, H);
         l.ctx.drawImage(img, 0, 0, W, H);
+        renderComposite();
         redrawPreview();
       };
       img.src = url;
@@ -870,6 +1116,7 @@ function updateSmoothLabel() {
     // ---- preview-слой
     var preview = (function () {
       var c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.dataset.kadryLayer = 'preview';
       c.style.position = 'absolute'; c.style.inset = '0'; c.style.width = '100%'; c.style.height = '100%';
       c.style.pointerEvents = 'none';
       c.style.userSelect = 'none';
@@ -978,22 +1225,25 @@ function updateSmoothLabel() {
 
       if (tool() === 'eraser') {
         if (isPreview) {
-          // На превью рисуем обычным штрихом, чтобы не "пробивать дырки"
+          // На превью рисуем обычным штрихом, чтобы не "пробивать дырки".
+          // Превью лежит отдельным canvas поверх слоя, поэтому учитываем opacity слоя здесь.
           ctx.globalCompositeOperation = 'source-over';
           ctx.globalAlpha = clamp(l.opacity * a, 0, 1);
           ctx.strokeStyle = '#000000';
           ctx.fillStyle = '#000000';
         } else {
-          // На реальном слое ластик стирает до прозрачности
+          // На реальном слое ластик стирает пиксели до прозрачности.
+          // Непрозрачность слоя не запекается в пиксели: она применяется только при отображении/экспорте.
           ctx.globalCompositeOperation = 'destination-out';
-          // Сила стирания управляется ползунком "прозрачность кисти"
           ctx.globalAlpha = clamp(a, 0, 1);
           ctx.strokeStyle = '#000000';
           ctx.fillStyle = '#000000';
         }
       } else {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = clamp(l.opacity * a, 0, 1);
+        // В реальный слой пишем только прозрачность кисти. Прозрачность слоя применяется через canvas.style.opacity
+        // и при exportComposite(), иначе порядок слоёв и дальнейшее изменение opacity становятся нелогичными.
+        ctx.globalAlpha = clamp((isPreview ? l.opacity : 1) * a, 0, 1);
         ctx.strokeStyle = color();
         ctx.fillStyle = color();
       }
@@ -1076,8 +1326,8 @@ function updateSmoothLabel() {
 
     // ---- координаты и HUD
     function localXY(e) {
-      var l = layers[active]; if (!l) return { x: 0, y: 0 };
-      var r = l.canvas.getBoundingClientRect();
+      if (!e) return { x: 0, y: 0 };
+      var r = getDrawingSurfaceRect();
       return {
         x: clamp((e.clientX - r.left) * (W / r.width), 0, W),
         y: clamp((e.clientY - r.top) * (H / r.height), 0, H)
@@ -1207,6 +1457,7 @@ function updateSmoothLabel() {
       if (!clipboardSel) return;
       var l = layers[active];
       if (!l || l.isRef) return;
+      if (!l.visible) { warnHiddenLayer(); return; }
       var off = document.createElement('canvas');
       off.width = clipboardSel.w;
       off.height = clipboardSel.h;
@@ -1265,20 +1516,23 @@ function updateSmoothLabel() {
     }
 
     function beginDraw(e) {
-      if (isTimeExpired()) return;
-      var l = layers[active]; if (!l || !l.visible) return;
+      if (isTimeExpired()) return false;
+      var l = layers[active];
+      if (!l) return false;
+      if (!l.visible) { warnHiddenLayer(); return false; }
       var t = tool();
+      if (t === 'eyedropper') return false;
       var initialPoint = localXY(e);
       lastPos = initialPoint;
       if (t === 'select') {
-        if (selection) return;
+        if (selection) return false;
         selecting = true;
         pathPoints = [];
         // сохраняем снимок слоя для последующей отмены, даже для референса
         beforeSelectSnapshot = l.canvas.toDataURL('image/png');
         selectionFromRef = !!l.isRef;
         appendPathPoint(initialPoint);
-        redrawPreview(); updateSelButtons(); return;
+        redrawPreview(); updateSelButtons(); return true;
       }
       drawing = true;
       if (!l.isRef) snapshot(l);
@@ -1288,6 +1542,7 @@ function updateSmoothLabel() {
       pathPoints = [];
       appendPathPoint(initialPoint);
       redrawPreview();
+      return true;
     }
 
     function moveDraw(e) {
@@ -1359,6 +1614,7 @@ function updateSmoothLabel() {
       // а на preview показываем только круг курсора.
       if (tool() === 'eraser') {
         redraw(l.ctx, l, pathPoints);
+        renderComposite();
 
         // preview — только HUD без чёрного хвоста
         preview.ctx.clearRect(0, 0, W, H);
@@ -1380,6 +1636,7 @@ function updateSmoothLabel() {
       if (isTimeExpired()) return;
       appendFinalPointerPoint(e);
       var l = layers[active]; if (!l) return;
+      if (!l.visible) { clearLiveState(); return; }
       var t = tool();
       if (t === 'select') {
         if (dragging && selection) {
@@ -1426,6 +1683,7 @@ function updateSmoothLabel() {
         l.ctx.closePath();
         l.ctx.fill();
         l.ctx.restore();
+        renderComposite();
 
         selection = {
           img: temp,
@@ -1447,7 +1705,10 @@ function updateSmoothLabel() {
       }
       if (!drawing) return;
       drawing = false;
-      if (!l.isRef) redraw(l.ctx, l, pathPoints);
+      if (!l.isRef) {
+        redraw(l.ctx, l, pathPoints);
+        renderComposite();
+      }
       redrawPreview(); pathPoints = [];
       if (t === 'brush' && lastStrokeColorHex) {
         pushColorToHistory(lastStrokeColorHex);
@@ -1484,6 +1745,7 @@ function updateSmoothLabel() {
     }
 
     wrap.addEventListener('pointerdown', function (e) {
+      if (isDisposed()) return;
       // Ignore secondary touches: a second finger must not start a second stroke.
       if (e.isPrimary === false) return;
       if (activePointerId !== null && activePointerId !== e.pointerId) {
@@ -1542,10 +1804,13 @@ function updateSmoothLabel() {
         }
       }
 
-      beginDraw(e);
+      if (beginDraw(e) === false) {
+        clearActivePointer(e);
+      }
     }, { passive: false });
 
     wrap.addEventListener('pointermove', function (e) {
+      if (isDisposed()) return;
       if (activePointerId !== null && activePointerId !== e.pointerId) return;
       if (isTimeExpired()) return;
       if (activePointerId !== null && e.cancelable) e.preventDefault();
@@ -1560,9 +1825,10 @@ function updateSmoothLabel() {
       moveDraw(e);
     }, { passive: false });
 
-    wrap.addEventListener('pointerup', finishCapturedPointer, { passive: false });
-    wrap.addEventListener('pointercancel', finishCapturedPointer, { passive: false });
+    wrap.addEventListener('pointerup', function (e) { if (isDisposed()) return; finishCapturedPointer(e); }, { passive: false });
+    wrap.addEventListener('pointercancel', function (e) { if (isDisposed()) return; finishCapturedPointer(e); }, { passive: false });
     wrap.addEventListener('lostpointercapture', function (e) {
+      if (isDisposed()) return;
       if (!e || activePointerId !== e.pointerId) return;
       // A lost capture can occur when the browser interrupts a pen/touch gesture.
       // Finalize the in-progress action once instead of leaving a stuck live stroke.
@@ -1579,6 +1845,7 @@ function updateSmoothLabel() {
     // Suppress native browser selection, drag images and long-press callouts only
     // inside the real drawing surface. UI inputs outside the canvas remain normal.
     function suppressNativeCanvasGesture(e) {
+      if (isDisposed()) return;
       if (e && e.cancelable) e.preventDefault();
     }
     wrap.addEventListener('selectstart', suppressNativeCanvasGesture, true);
@@ -1595,6 +1862,7 @@ function updateSmoothLabel() {
 
     // Зум колесиком мыши в режиме лупы
     wrap.addEventListener('wheel', function (e) {
+      if (isDisposed()) return;
       if (isTimeExpired()) return;
       if (tool() !== 'zoom') return;
       e.preventDefault();
@@ -1610,9 +1878,10 @@ function updateSmoothLabel() {
     }, { passive: false });
 
     document.addEventListener('mousemove', function (e) {
+      if (isDisposed()) return;
       if (isTimeExpired()) return;
-      var l = layers[active]; if (!l) return;
-      var r = l.canvas.getBoundingClientRect();
+      if (!layers[active]) return;
+      var r = getDrawingSurfaceRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         lastPos = {
           x: clamp((e.clientX - r.left) * (W / r.width), 0, W),
@@ -1637,11 +1906,13 @@ function updateSmoothLabel() {
       if (fromRef && srcLayer) {
         dest = srcLayer;
       }
+      if (!dest.visible) { warnHiddenLayer(); return; }
 
       if (!dest.isRef) {
         snapshot(dest);
       }
       dest.ctx.drawImage(selection.img, selection.x, selection.y, selection.w, selection.h);
+      renderComposite();
 
       selection = null; selectionFromRef = false;
       selecting = false; dragging = false; dragMode = null; beforeSelectSnapshot = null;
@@ -1660,19 +1931,36 @@ function updateSmoothLabel() {
     });
 
     // ---- пипетка
-    function pickColorAt(pos) {
+    function sampleCompositeColorAt(pos) {
+      if (!pos) return null;
+      var x = Math.floor(clamp(pos.x, 0, W - 1));
+      var y = Math.floor(clamp(pos.y, 0, H - 1));
       var off = document.createElement('canvas'); off.width = W; off.height = H;
       var o = off.getContext('2d');
+      if (!o) return null;
+      o.globalCompositeOperation = 'source-over';
+      o.globalAlpha = 1;
+      o.fillStyle = '#ffffff';
+      o.fillRect(0, 0, W, H);
       for (var i = 0; i < layers.length; i++) {
-        var l = layers[i]; if (!l.visible) continue;
-        o.globalAlpha = l.opacity;
+        var l = layers[i];
+        if (!l.visible || l.isRef) continue;
+        if (l.opacity <= 0) continue;
+        o.globalAlpha = clamp(l.opacity, 0, 1);
         o.drawImage(l.canvas, 0, 0);
       }
-      var d = o.getImageData(Math.floor(pos.x), Math.floor(pos.y), 1, 1).data;
+      o.globalAlpha = 1;
+      var d = o.getImageData(x, y, 1, 1).data;
       function hx(n) { return ('0' + n.toString(16)).slice(-2); }
-      var hex = '#' + hx(d[0]) + hx(d[1]) + hx(d[2]);
+      return '#' + hx(d[0]) + hx(d[1]) + hx(d[2]);
+    }
+
+    function pickColorAt(pos) {
+      var hex = sampleCompositeColorAt(pos);
+      if (!hex) return null;
       if (colorInp) colorInp.value = hex;
       setColorFromHex(hex);
+      return hex;
     }
 
         if (sizeInp) sizeInp.addEventListener('input', function () {
@@ -1691,6 +1979,7 @@ function updateSmoothLabel() {
 
     // ---- хоткеи кисти / пипетки / толщины + зум
     document.addEventListener('keydown', function (e) {
+      if (isDisposed()) return;
       if (isTimeExpired()) return;
 
   // Не трогаем ТОЛЬКО текстовые поля / textarea,
@@ -1824,6 +2113,7 @@ function updateSmoothLabel() {
 
     // ---- хоткеи undo/redo и copy/paste (работают в обеих раскладках)
     document.addEventListener('keydown', function (e) {
+      if (isDisposed()) return;
       if (isTimeExpired()) return;
   const target = e.target;
   const tag = target && target.tagName ? target.tagName.toUpperCase() : '';
@@ -1885,9 +2175,10 @@ function updateSmoothLabel() {
         var l = layers[i];
         if (!l.visible || l.isRef) continue;
         if (l.opacity <= 0) continue;
-        ctx.globalAlpha = l.opacity;
+        ctx.globalAlpha = clamp(l.opacity, 0, 1);
         ctx.drawImage(l.canvas, 0, 0);
       }
+      ctx.globalAlpha = 1;
       return new Promise(function (res) {
         off.toBlob(function (b) {
           hudEnabled = prevHUD; exporting = false; redrawPreview(); res(b);
@@ -1901,6 +2192,70 @@ function updateSmoothLabel() {
     window.drawAPI.exportCompositeBlob = function () {
       return exportComposite();
     };
+
+    window.drawAPI.pickColorAtClient = function (clientX, clientY) {
+      var r = wrap.getBoundingClientRect();
+      if (!r || !r.width || !r.height) return null;
+      var pos = {
+        x: clamp((clientX - r.left) * (W / r.width), 0, W - 1),
+        y: clamp((clientY - r.top) * (H / r.height), 0, H - 1)
+      };
+      return sampleCompositeColorAt(pos);
+    };
+
+    function debugLayerHasPixels(l) {
+      if (!l || !l.ctx) return false;
+      try {
+        var img = l.ctx.getImageData(0, 0, W, H);
+        var data = img && img.data ? img.data : [];
+        for (var i = 3; i < data.length; i += 4) {
+          if (data[i] !== 0) return true;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    window.drawAPI.debugLayers = function () {
+      var domCanvases = [];
+      try {
+        domCanvases = Array.prototype.slice.call(wrap.querySelectorAll('canvas')).map(function (node) {
+          return {
+            type: node.dataset && node.dataset.kadryLayer || '',
+            display: node.style.display || '',
+            visibility: node.style.visibility || '',
+            opacity: node.style.opacity || '',
+            inDom: node.parentNode === wrap
+          };
+        });
+      } catch (_) {}
+      return {
+        width: W,
+        height: H,
+        activeIndex: active,
+        runtimeId: runtimeId,
+        disposed: isDisposed(),
+        serviceCounts: {
+          whiteBackgrounds: wrap.querySelectorAll('.kadry-canvas-white-background').length,
+          composites: wrap.querySelectorAll('canvas[data-kadry-layer="composite"]').length,
+          previews: wrap.querySelectorAll('canvas[data-kadry-layer="preview"]').length
+        },
+        domCanvases: domCanvases,
+        layers: layers.map(function (l, i) {
+          return {
+            index: i,
+            name: l.name,
+            visible: !!l.visible,
+            opacity: l.opacity,
+            isRef: !!l.isRef,
+            isBase: !!l.isBase,
+            canvasInDom: !!(l.canvas && l.canvas.parentNode === wrap),
+            hasPixels: debugLayerHasPixels(l)
+          };
+        })
+      };
+    };
+    window.__kadryLayerDebug = window.drawAPI.debugLayers;
+    window.__kadryLayerForceRender = function () { renderComposite(); redrawPreview(); return window.drawAPI.debugLayers(); };
 
     // управление кружком курсора кисти (используется из editor.html)
     window.drawAPI.setBrushCursorVisible = function (visible) {
@@ -1921,21 +2276,36 @@ function updateSmoothLabel() {
     }
 
     (function initBase() {
-      var base = makeLayer('Базовый слой', false);
       if (baseImageUrl) {
+        // Редактор продолжения серии стартует с ОДНОГО слоя.
+        // Этот слой содержит предыдущий кадр серии и является обычным редактируемым
+        // слоем: его можно скрывать, очищать, удалять, менять по opacity и рисовать
+        // на нём. Белый фон холста остаётся отдельной базой рабочей области и не
+        // входит в список слоёв.
+        var base = makeLayer('Базовый слой', false, { activate: true, isBase: true });
         try { base.canvas.style.opacity = '1'; } catch (_) { }
         var img = new Image(); img.crossOrigin = 'anonymous';
         img.onload = function () {
+          base.ctx.save();
+          base.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          base.ctx.globalAlpha = 1;
+          base.ctx.globalCompositeOperation = 'source-over';
           base.ctx.clearRect(0, 0, W, H);
           drawImageFit(base.ctx, img);
+          base.ctx.restore();
+          resetLayerContext(base);
+          refreshCanvasStack();
         };
         img.onerror = function () {
           console.warn('[draw.js] baseImageUrl load failed');
+          refreshCanvasStack();
         };
         img.src = baseImageUrl;
+      } else {
+        // Создание новой серии и редактор аватарки стартуют с одного пустого базового слоя.
+        makeLayer('Базовый слой', false, { activate: true, isBase: true });
       }
-      setZ();
-      buildLayerList();
+      refreshCanvasStack();
       updateSelButtons();
       applyLockState();
     })();

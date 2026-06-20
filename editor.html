@@ -16,7 +16,7 @@
   <!-- Админ-скрипт -->
   <script src="admin.js"></script>
   <!-- Редактор рисования -->
-  <script src="draw.js"></script>
+  <script src="draw.js?v=layers-runtime-dedupe-20260620b"></script>
   <style id="editor-auth-gate-styles">
     .editor-auth-gate{position:fixed;inset:0;z-index:99980;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.72);backdrop-filter:blur(3px);box-sizing:border-box;}
     body.editor-auth-blocked .editor-auth-gate{display:flex;}
@@ -503,10 +503,12 @@ const MAX_DRAW_MS = 10 * 60 * 1000;
     function exportPNG() {
       const wrap = document.getElementById('canvasWrap');
       if (!wrap) return null;
-      let canvases = Array.from(wrap.querySelectorAll('canvas'));
-      if (document.body.classList.contains('modal-open') && canvases.length > 1) {
-        canvases = canvases.slice(0, -1);
-      }
+      let canvases = Array.from(wrap.querySelectorAll('canvas')).filter((cv) => {
+        const type = cv.dataset && cv.dataset.kadryLayer;
+        if (type === 'preview' || type === 'reference') return false;
+        if (cv.style && cv.style.display === 'none') return false;
+        return true;
+      });
       if (!canvases.length) return null;
       const W = canvases[0].width || 1920;
       const H = canvases[0].height || 1080;
@@ -514,11 +516,18 @@ const MAX_DRAW_MS = 10 * 60 * 1000;
       out.width = W;
       out.height = H;
       const ctx = out.getContext('2d');
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
       canvases.forEach((cv) => {
         try {
+          const rawOpacity = cv.style && cv.style.opacity !== '' ? Number(cv.style.opacity) : 1;
+          ctx.globalAlpha = Number.isFinite(rawOpacity) ? Math.max(0, Math.min(rawOpacity, 1)) : 1;
           ctx.drawImage(cv, 0, 0);
         } catch (_) {}
       });
+      ctx.globalAlpha = 1;
       return out;
     }
 
@@ -1432,7 +1441,10 @@ location.replace('vote.html?series=' + seriesId);
       const wrap = document.getElementById('canvasWrap');
       if (!wrap) return;
       const canvases = Array.from(wrap.querySelectorAll('canvas'));
-      const cv = canvases.find((node) => Number(node.style.zIndex || 0) > 0 && Number(node.style.zIndex || 0) < 10) || canvases[0];
+      const cv = canvases.find((node) => {
+        const type = node.dataset && node.dataset.kadryLayer;
+        return type !== 'preview' && type !== 'reference' && node.style.display !== 'none';
+      }) || canvases[0];
       if (!cv) return;
       const rect = cv.getBoundingClientRect();
       const x = Math.floor((clientX - rect.left) * cv.width / rect.width);
